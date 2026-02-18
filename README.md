@@ -188,8 +188,6 @@ This project is licensed under the GNU Affero General Public License v3.0 (AGPL-
 ## 🔗 Links
 
 - [OpenCode AI Schema](https://opencode.ai/config.json)
-- [Claude AI Models](https://docs.anthropic.com/claude/reference)
-- [JSON Schema Validation](https://jsonschema.net/)
 
 ---
 
