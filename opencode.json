@@ -4,7 +4,7 @@
     "code-reviewer": {
       "description": "Reviews code for best practices and potential issues",
       "mode": "subagent",
-      "model": "anthropic/claude-sonnet-4-20250514",
+      "model": "anthropic/claude-sonnet-4-6",
       "prompt": "You are a code reviewer. Focus on security, performance, and maintainability.",
       "tools": {
         "write": false,
@@ -14,7 +14,7 @@
     "docs": {
       "description": "Routes documentation requests to the appropriate documentation subagent",
       "mode": "primary",
-      "model": "anthropic/claude-sonnet-4-20250514",
+      "model": "anthropic/claude-haiku-4-5-20251001",
       "prompt": "You are a documentation routing agent. Analyze documentation requests and delegate to the appropriate subagent: use 'user-guide' for end-user documentation (READMEs, usage guides, tutorials for GitHub users).",
       "tools": {
         "write": false,
@@ -24,12 +24,42 @@
     "user-guide": {
       "description": "Writes end-user documentation for GitHub repositories (READMEs, usage guides, tutorials)",
       "mode": "subagent",
-      "model": "anthropic/claude-haiku-4-20251001",
+      "model": "anthropic/claude-haiku-4-5-20251001",
       "prompt": "Write clear documentation for end users of GitHub repositories. Focus on practical usage, getting started guides, and tutorials. Avoid implementation details unless necessary for usage.",
       "tools": {
         "write": true,
         "edit": true
       }
+    },
+    "coding-boss": {
+      "description": "Routes tasks to junior/senior/architect based on complexity + risk",
+      "mode": "primary",
+      "model": "anthropic/claude-haiku-4-5-20251001",
+      "prompt": "You are a routing agent.\n\n1) Classify the user request:\n- JUNIOR: local change, low risk, <=2 files, straightforward.\n- SENIOR: debugging, non-trivial refactor, tests across modules, medium risk.\n- ARCHITECT: architecture/API changes, security-sensitive, multi-module, migrations, high risk.\n\n2) Always delegate by invoking exactly one subagent:\n- @junior for JUNIOR\n- @senior for SENIOR\n- @architect for ARCHITECT\n\n3) If uncertain between two, choose the MORE expensive one only when risk is higher (security, data loss, production outages). Otherwise choose cheaper.\n\n4) Ask no questions unless absolutely required; make reasonable assumptions and proceed.",
+      "tools": { "write": false, "edit": false }
+    },
+      "junior": {
+      "description": "Junior engineer: quick, cheap implementation of small scoped tasks",
+      "mode": "subagent",
+      "model": "anthropic/claude-haiku-4-20251001",
+      "prompt": "You are a junior software engineer. Make minimal, safe changes. Prefer small diffs. Add simple tests when relevant. If task expands beyond 2 files or you discover architectural risk, stop and recommend escalating to @senior.",
+      "tools": { "write": true, "edit": true }
+    },
+
+    "senior": {
+      "description": "Senior engineer: robust solutions, refactors, debugging, review",
+      "mode": "subagent",
+      "model": "anthropic/claude-sonnet-4-6",
+      "prompt": "You are a senior software engineer. Prioritize correctness, maintainability, and tests. Explain tradeoffs briefly. If a change affects public APIs, security boundaries, or cross-service contracts, recommend escalating to @architect.",
+      "tools": { "write": true, "edit": true }
+    },
+
+    "architect": {
+      "description": "Architect: high-stakes design and cross-cutting changes",
+      "mode": "subagent",
+      "model": "anthropic/claude-sonnet-4-6",
+      "prompt": "You are a software architect. Focus on system design, contracts, migration strategy, security, and long-term maintainability. Propose a plan first, then implement in safe steps with tests and rollback notes.",
+      "tools": { "write": false, "edit": false }
     }
   }
 }
