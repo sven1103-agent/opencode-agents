@@ -4,7 +4,7 @@ This repository serves as a **central configuration hub** for AI agents that con
 
 ## 📋 What This Repository Contains
 
-- **`agents-config.json`**: The main configuration file defining AI agents with their capabilities, models, and permissions
+- **`opencode.json`**: The main configuration file defining AI agents with their capabilities, models, and permissions
 - **Schema Compliance**: All configurations follow the OpenCode AI schema standards
 - **Version Control**: Track changes to agent configurations over time
 - **Centralized Management**: Single location for maintaining agent definitions
@@ -30,7 +30,7 @@ The current configuration defines three specialized AI agents:
 ### 3. **User Guide Writer** (`user-guide`)
 - **Purpose**: Creates end-user documentation like READMEs, tutorials, and usage guides
 - **Mode**: Subagent (works under the docs router)
-- **Model**: Claude Haiku 4 (2025-05-14)
+- **Model**: Claude Haiku 4 (2025-10-01)
 - **Permissions**: Full write/edit access
 - **Best For**: README files, getting started guides, user tutorials, API documentation
 
@@ -44,20 +44,20 @@ The current configuration defines three specialized AI agents:
 ### For Developers
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/yourusername/opencode-agents.git
+   git clone https://github.com/sven1103-agent/opencode-agents.git
    cd opencode-agents
    ```
 
 2. **Validate Configuration**:
    ```bash
    # Ensure your JSON is valid
-   cat agents-config.json | jq .
+   cat opencode.json | jq .
    ```
 
 3. **Use in Your Application**:
    ```javascript
    // Example usage in a Node.js application
-   const config = require('./agents-config.json');
+   const config = require('./opencode.json');
    const codeReviewer = config.agent['code-reviewer'];
    ```
 
@@ -95,7 +95,7 @@ Each agent in the configuration follows this structure:
 ## 🔧 Customization
 
 ### Adding New Agents
-1. Edit `agents-config.json`
+1. Edit `opencode.json`
 2. Add your new agent following the schema structure
 3. Commit and push your changes
 4. Update dependent applications to use the new agent
@@ -112,7 +112,7 @@ Each agent in the configuration follows this structure:
 ```html
 <!-- Load configuration dynamically -->
 <script>
-fetch('./agents-config.json')
+fetch('./opencode.json')
   .then(response => response.json())
   .then(config => {
     const userGuideAgent = config.agent['user-guide'];
@@ -126,7 +126,7 @@ fetch('./agents-config.json')
 import json
 
 # Load agent configuration
-with open('agents-config.json', 'r') as f:
+with open('opencode.json', 'r') as f:
     config = json.load(f)
 
 # Access specific agent
@@ -138,7 +138,7 @@ prompt = docs_agent['prompt']
 ### API Integration
 ```bash
 # Use as a remote configuration source
-curl -s https://raw.githubusercontent.com/yourusername/opencode-agents/main/agents-config.json | jq '.agent["code-reviewer"]'
+curl -s https://raw.githubusercontent.com/yourusername/opencode-agents/main/opencode.json | jq '.agent["code-reviewer"]'
 ```
 
 ## 📖 Use Cases
