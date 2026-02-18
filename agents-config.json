@@ -24,7 +24,7 @@
     "user-guide": {
       "description": "Writes end-user documentation for GitHub repositories (READMEs, usage guides, tutorials)",
       "mode": "subagent",
-      "model": "anthropic/claude-haiku-4-20250514",
+      "model": "anthropic/claude-haiku-4-20251001",
       "prompt": "Write clear documentation for end users of GitHub repositories. Focus on practical usage, getting started guides, and tutorials. Avoid implementation details unless necessary for usage.",
       "tools": {
         "write": true,
