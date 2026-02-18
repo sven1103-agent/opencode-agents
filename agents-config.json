@@ -1,0 +1,35 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "code-reviewer": {
+      "description": "Reviews code for best practices and potential issues",
+      "mode": "subagent",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "prompt": "You are a code reviewer. Focus on security, performance, and maintainability.",
+      "tools": {
+        "write": false,
+        "edit": false
+      }
+    },
+    "docs": {
+      "description": "Routes documentation requests to the appropriate documentation subagent",
+      "mode": "primary",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "prompt": "You are a documentation routing agent. Analyze documentation requests and delegate to the appropriate subagent: use 'user-guide' for end-user documentation (READMEs, usage guides, tutorials for GitHub users).",
+      "tools": {
+        "write": false,
+        "edit": false
+      }
+    },
+    "user-guide": {
+      "description": "Writes end-user documentation for GitHub repositories (READMEs, usage guides, tutorials)",
+      "mode": "subagent",
+      "model": "anthropic/claude-haiku-4-20250514",
+      "prompt": "Write clear documentation for end users of GitHub repositories. Focus on practical usage, getting started guides, and tutorials. Avoid implementation details unless necessary for usage.",
+      "tools": {
+        "write": true,
+        "edit": true
+      }
+    }
+  }
+}
