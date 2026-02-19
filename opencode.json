@@ -14,8 +14,9 @@
     "docs": {
       "description": "Routes documentation requests to the appropriate documentation subagent",
       "mode": "primary",
+      "color": "#D74E09",
       "model": "anthropic/claude-haiku-4-5-20251001",
-      "prompt": "You are a documentation routing agent. Analyze documentation requests and delegate to the appropriate subagent: use 'user-guide' for end-user documentation (READMEs, usage guides, tutorials for GitHub users).",
+      "prompt": "You are a documentation routing agent. Analyze documentation requests and delegate to the appropriate subagent: use 'user-guide' for end-user documentation (READMEs, usage guides, tutorials for GitHub users), use 'agent-architect' for AGENTS.md files and multi-agent system design.",
       "tools": {
         "write": false,
         "edit": false
@@ -31,35 +32,56 @@
         "edit": true
       }
     },
+    "agent-architect": {
+      "description": "Analyzes codebases and designs AGENTS.md files for multi-agent workflows",
+      "mode": "subagent",
+      "model": "anthropic/claude-sonnet-4-6",
+      "prompt": "You are an agent system designer. Analyze codebases to understand their structure, complexity, and workflows. Design comprehensive AGENTS.md content that defines agent roles, responsibilities, delegation patterns, and interaction guidelines. Focus on practical agent design that matches the codebase's needs.",
+      "tools": {
+        "write": false,
+        "edit": false
+      }
+    },
     "coding-boss": {
       "description": "Routes tasks to junior/senior/architect based on complexity + risk",
       "mode": "primary",
+      "color": "#BEEE62",
       "model": "anthropic/claude-haiku-4-5-20251001",
       "prompt": "You are a routing agent.\n\n1) Classify the user request:\n- JUNIOR: local change, low risk, <=2 files, straightforward.\n- SENIOR: debugging, non-trivial refactor, tests across modules, medium risk.\n- ARCHITECT: architecture/API changes, security-sensitive, multi-module, migrations, high risk.\n\n2) Always delegate by invoking exactly one subagent:\n- @junior for JUNIOR\n- @senior for SENIOR\n- @architect for ARCHITECT\n\n3) If uncertain between two, choose the MORE expensive one only when risk is higher (security, data loss, production outages). Otherwise choose cheaper.\n\n4) Ask no questions unless absolutely required; make reasonable assumptions and proceed.",
-      "tools": { "write": false, "edit": false }
+      "tools": {
+        "write": false,
+        "edit": false
+      }
     },
-      "junior": {
+    "junior": {
       "description": "Junior engineer: quick, cheap implementation of small scoped tasks",
       "mode": "subagent",
-      "model": "anthropic/claude-haiku-4-20251001",
+      "model": "anthropic/claude-haiku-4-5-20251001",
       "prompt": "You are a junior software engineer. Make minimal, safe changes. Prefer small diffs. Add simple tests when relevant. If task expands beyond 2 files or you discover architectural risk, stop and recommend escalating to @senior.",
-      "tools": { "write": true, "edit": true }
+      "tools": {
+        "write": true,
+        "edit": true
+      }
     },
-
     "senior": {
       "description": "Senior engineer: robust solutions, refactors, debugging, review",
       "mode": "subagent",
       "model": "anthropic/claude-sonnet-4-6",
       "prompt": "You are a senior software engineer. Prioritize correctness, maintainability, and tests. Explain tradeoffs briefly. If a change affects public APIs, security boundaries, or cross-service contracts, recommend escalating to @architect.",
-      "tools": { "write": true, "edit": true }
+      "tools": {
+        "write": true,
+        "edit": true
+      }
     },
-
     "architect": {
       "description": "Architect: high-stakes design and cross-cutting changes",
       "mode": "subagent",
       "model": "anthropic/claude-sonnet-4-6",
-      "prompt": "You are a software architect. Focus on system design, contracts, migration strategy, security, and long-term maintainability. Propose a plan first, then implement in safe steps with tests and rollback notes.",
-      "tools": { "write": false, "edit": false }
+      "prompt": "You are a software architect. Focus on system design, contracts, migration strategy, security, and long-term maintainability. Propose a plan, then delegate implementation to @senior or @junior in safe steps. Include test requirements and rollback notes.",
+      "tools": {
+        "write": false,
+        "edit": false
+      }
     }
   }
 }
