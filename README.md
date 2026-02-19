@@ -11,11 +11,15 @@ This repository serves as a **central configuration hub** for AI agents that con
 
 ## 🤖 Available Agents
 
-The current configuration defines seven specialized AI agents organized into primary agents and subagents:
+The current configuration defines **eight specialized AI agents** organized into primary agents and subagents across three functional domains.
 
-### Primary Agents (Entry Points)
+---
 
-#### 1. **Coding Boss** (`coding-boss`)
+## 🎯 Primary Agents (Entry Points)
+
+These agents serve as main entry points for different types of work:
+
+### 1. **Coding Boss** (`coding-boss`)
 - **Purpose**: Routes coding tasks to junior/senior/architect engineers based on complexity and risk
 - **Mode**: Primary (main entry point for coding tasks)
 - **Model**: Claude Haiku 4.5 (2025-10-01)
@@ -26,25 +30,20 @@ The current configuration defines seven specialized AI agents organized into pri
   - **ARCHITECT**: Architecture/API changes, security-sensitive, multi-module, migrations, high risk
 - **Best For**: Automatically routing coding requests to the appropriate engineering level
 
-#### 2. **Documentation Router** (`docs`)
-- **Purpose**: Routes documentation requests to the appropriate specialized documentation subagents
+### 2. **Documentation Router** (`docs`)
+- **Purpose**: Routes documentation requests to the appropriate specialized documentation subagent
 - **Mode**: Primary (main entry point for documentation tasks)
 - **Model**: Claude Haiku 4.5 (2025-10-01)
 - **Permissions**: Read-only (routing and analysis only)
 - **Best For**: Determining which documentation agent should handle specific requests
 
-### Subagents - Code Review & Analysis
+---
 
-#### 3. **Code Reviewer** (`code-reviewer`)
-- **Purpose**: Reviews code for best practices, security, performance, and maintainability
-- **Mode**: Subagent (works under routing agents)
-- **Model**: Claude Sonnet 4.6
-- **Permissions**: Read-only (cannot write or edit files)
-- **Best For**: Code quality assessments, security audits, performance reviews, quality gates
+## 👨‍💼 Engineering Subagents
 
-### Subagents - Engineering Team
+These agents handle different levels of coding complexity and implementation:
 
-#### 4. **Junior Engineer** (`junior`)
+### 3. **Junior Engineer** (`junior`)
 - **Purpose**: Quick, cheap implementation of small scoped tasks with minimal risk
 - **Mode**: Subagent (works under coding-boss routing)
 - **Model**: Claude Haiku 4.5 (2024-01-01)
@@ -53,7 +52,7 @@ The current configuration defines seven specialized AI agents organized into pri
 - **Escalation**: Stops and recommends escalation to @senior if task expands beyond 2 files or discovers architectural risk
 - **Best For**: Bug fixes, small features, straightforward implementations
 
-#### 5. **Senior Engineer** (`senior`)
+### 4. **Senior Engineer** (`senior`)
 - **Purpose**: Robust solutions, refactors, debugging, and code reviews with attention to maintainability
 - **Mode**: Subagent (works under coding-boss routing)
 - **Model**: Claude Sonnet 4.6
@@ -62,7 +61,7 @@ The current configuration defines seven specialized AI agents organized into pri
 - **Escalation**: Recommends escalation to @architect for public API changes, security boundaries, or cross-service contracts
 - **Best For**: Complex bug fixes, refactors, multi-module changes, architectural reviews
 
-#### 6. **Architect** (`architect`)
+### 5. **Architect** (`architect`)
 - **Purpose**: High-stakes design and cross-cutting system changes
 - **Mode**: Subagent (works under coding-boss routing)
 - **Model**: Claude Sonnet 4.6
@@ -71,15 +70,36 @@ The current configuration defines seven specialized AI agents organized into pri
 - **Focus**: System design, contracts, migration strategy, security, long-term maintainability
 - **Best For**: Architecture redesigns, security-sensitive changes, multi-service coordination, major migrations
 
-### Subagents - Documentation
+### 6. **Code Reviewer** (`code-reviewer`)
+- **Purpose**: Reviews code for best practices, security, performance, and maintainability
+- **Mode**: Subagent (works independently or under routing agents)
+- **Model**: Claude Sonnet 4.6
+- **Permissions**: Read-only (cannot write or edit files)
+- **Best For**: Code quality assessments, security audits, performance reviews, quality gates
 
-#### 7. **User Guide Writer** (`user-guide`)
+---
+
+## 📚 Documentation Subagents
+
+These agents specialize in creating different types of documentation:
+
+### 7. **User Guide Writer** (`user-guide`)
 - **Purpose**: Creates end-user documentation like READMEs, tutorials, and usage guides
 - **Mode**: Subagent (works under docs routing agent)
 - **Model**: Claude Haiku 4.5 (2025-10-01)
 - **Permissions**: Full write/edit access
 - **Focus**: Clear, practical documentation avoiding implementation details
 - **Best For**: README files, getting started guides, user tutorials, API documentation, usage examples
+
+### 8. **Agent Architect** (`agent-architect`)
+- **Purpose**: Analyzes codebases and designs AGENTS.md files for multi-agent workflows
+- **Mode**: Subagent (works under docs routing agent)
+- **Model**: Claude Sonnet 4.6
+- **Permissions**: Read-only (design and analysis focus)
+- **Focus**: Agent role definition, delegation patterns, interaction guidelines, system design
+- **Best For**: Designing AGENTS.md documentation, multi-agent system architecture, workflow planning
+
+---
 
 ## 🚀 Getting Started
 
