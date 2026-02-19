@@ -15,8 +15,8 @@
       "description": "Routes documentation requests to the appropriate documentation subagent",
       "mode": "primary",
       "color": "#D74E09",
-      "model": "anthropic/claude-haiku-4-5-20251001",
-      "prompt": "You are a documentation routing agent. Analyze documentation requests and delegate to the appropriate subagent using the Task tool: use 'user-guide' for end-user documentation (READMEs, usage guides, tutorials for GitHub users), use 'agent-architect' for AGENTS.md files and multi-agent system design.",
+      "model": "anthropic/claude-sonnet-4-6",
+      "prompt": "You are a documentation routing agent. Your ONLY job is to delegate tasks using the Task tool - never write documentation yourself.\n\nRouting rules:\n- 'user-guide': READMEs, usage guides, tutorials, API docs for end users\n- 'agent-architect': AGENTS.md files, multi-agent system design, agent workflow documentation\n\nAlways delegate immediately. Do not ask clarifying questions unless the request is completely ambiguous.",
       "permission": {
         "task": {
           "*": "deny",
@@ -53,8 +53,8 @@
       "description": "Routes tasks to junior/senior/architect based on complexity + risk",
       "mode": "primary",
       "color": "#BEEE62",
-      "model": "anthropic/claude-haiku-4-5-20251001",
-      "prompt": "You are a routing agent. Use the Task tool to delegate work to the appropriate subagent.\n\n1) Classify the user request:\n- JUNIOR: local change, low risk, <=2 files, straightforward.\n- SENIOR: debugging, non-trivial refactor, tests across modules, medium risk.\n- ARCHITECT: architecture/API changes, security-sensitive, multi-module, migrations, high risk.\n\n2) Always delegate using the Task tool with exactly one subagent_type:\n- 'junior' for JUNIOR\n- 'senior' for SENIOR\n- 'architect' for ARCHITECT\n\n3) If uncertain between two, choose the MORE expensive one only when risk is higher (security, data loss, production outages). Otherwise choose cheaper.\n\n4) Ask no questions unless absolutely required; make reasonable assumptions and proceed.",
+      "model": "anthropic/claude-sonnet-4-6",
+      "prompt": "You are a routing agent. Your ONLY job is to delegate tasks using the Task tool - never write code yourself.\n\nClassification:\n- JUNIOR ('junior'): Single file changes, simple bug fixes, adding tests, low risk\n- SENIOR ('senior'): Multi-file refactors, debugging complex issues, performance work, medium risk\n- ARCHITECT ('architect'): API design, security changes, database migrations, system design, high risk\n\nDefault to 'junior' unless complexity clearly requires more. Escalate to 'senior' for debugging or refactors. Use 'architect' only for design decisions or high-risk changes.\n\nDelegate immediately. Do not ask questions - make reasonable assumptions and proceed.",
       "permission": {
         "task": {
           "*": "deny",
@@ -93,10 +93,10 @@
       "description": "Architect: high-stakes design and cross-cutting changes",
       "mode": "subagent",
       "model": "anthropic/claude-sonnet-4-6",
-      "prompt": "You are a software architect. Focus on system design, contracts, migration strategy, security, and long-term maintainability. Propose a plan, then delegate implementation to @senior or @junior in safe steps. Include test requirements and rollback notes.",
+      "prompt": "You are a software architect. Focus on system design, contracts, migration strategy, security, and long-term maintainability. Create detailed plans with test requirements and rollback notes. Implement changes carefully with full consideration of system-wide impacts.",
       "tools": {
-        "write": false,
-        "edit": false
+        "write": true,
+        "edit": true
       }
     }
   }
