@@ -3,7 +3,40 @@
   "default_agent": "coding-boss",
   "model": "openai/gpt-5.4",
   "small_model": "openai/gpt-5.2",
-
+  "provider": {
+    "openai": {
+      "models": {
+        "gpt-5.4": {
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "low",
+            "reasoningSummary": "auto"
+          }
+        },
+        "gpt-5.2": {
+          "options": {
+            "reasoningEffort": "low",
+            "textVerbosity": "low",
+            "reasoningSummary": "auto"
+          }
+        },
+        "gpt-5.3-codex": {
+          "options": {
+            "reasoningEffort": "low",
+            "textVerbosity": "low",
+            "reasoningSummary": "auto"
+          }
+        },
+        "gpt-5.1-codex-mini": {
+          "options": {
+            "reasoningEffort": "minimal",
+            "textVerbosity": "low",
+            "reasoningSummary": "auto"
+          }
+        }
+      }
+    }
+  },
   "agent": {
     "coding-boss": {
       "description": "Routes coding work by phase: planning, trivial implementation, normal implementation, and review",
