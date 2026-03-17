@@ -301,25 +301,7 @@ Before editing, it restates: the objective, files it expects to modify, and its 
 
 `code-reviewer` receives a review summary from an implementer and performs a structured review against four axes: correctness, security, maintainability, and test adequacy.
 
-**Output format:**
-
-```
-=== REVIEW RESULT ===
-Status: approve | needs changes
-
-Findings:
-- severity: high | medium | low
-  <finding description>
-
-Checks performed:
-- correctness
-- security
-- maintainability
-- test adequacy
-
-Recommended next step:
-=== END REVIEW RESULT ===
-```
+**Output:** A single JSON object persisted as a result artifact, matching `.opencode/schemas/result.schema.json` (use `result_type: "review_result"` and `status: "approve" | "needs_changes"`).
 
 **Permission boundaries:**
 
@@ -342,7 +324,9 @@ Recommended next step:
 - **Model:** `claude-sonnet-4-6`
 - **Mode:** Subagent
 
-`docs-reviewer` reviews completed documentation for accuracy, clarity, and structure. It outputs a `DOCS REVIEW RESULT` block with an approve/needs-changes verdict and structured findings.
+`docs-reviewer` reviews completed documentation for accuracy, clarity, and structure.
+
+**Output:** A single JSON object persisted as a result artifact, matching `.opencode/schemas/result.schema.json` (use `result_type: "review_result"` and `status: "approve" | "needs_changes"`).
 
 **Permission boundaries:**
 
@@ -452,28 +436,38 @@ coding-boss  [claude-sonnet-4-6]
   │     ▼
   │   implementer  [gpt-5.3-codex]
   │     │  Follows plan strictly
-  │     │  Returns: review summary content
+  │     │  Returns: result JSON artifact (`review_summary`)
   │     │
   │     ▼
   │   code-reviewer  [claude-sonnet-4-6]
-  │       Returns: review result (approve / needs changes)
+  │     │  Returns: result JSON artifact (`review_result`)
+  │     ▼
+  │   coding-boss  [claude-sonnet-4-6]
+  │       Records result artifacts; decides next step / returns final result
   │
   ├─ Implementation-ready, trivial
   │     │
   │     ▼
   │   implementer-small  [gpt-5.1-codex-mini]
-  │       Returns: review summary content
+  │       Returns: result JSON artifact (`review_summary`)
   │       (self-escalates to implementer if scope expands)
+  │
+  │     ▼
+  │   coding-boss  [claude-sonnet-4-6]
+  │       Records result artifact; decides next step / returns final result
   │
   └─ Implementation-ready, non-trivial
         │
         ▼
       implementer  [gpt-5.3-codex]
-        │  Returns: review summary content
+        │  Returns: result JSON artifact (`review_summary`)
         │
         ▼
       code-reviewer  [claude-sonnet-4-6]
-          Returns: review result
+        │  Returns: result JSON artifact (`review_result`)
+        ▼
+      coding-boss  [claude-sonnet-4-6]
+          Records result artifacts; decides next step / returns final result
 ```
 
 ### Documentation Workflow
@@ -495,7 +489,11 @@ docs  [claude-haiku-4-5]
   │     │
   │     ▼
   │   docs-writer-fast  [claude-haiku-4-5]
-  │       Small diff, direct edit
+  │       Returns: result JSON artifact (`docs_result`)
+  │
+  │     ▼
+  │   docs  [claude-haiku-4-5]
+  │       Records result artifact; decides next step / returns final result
   │
   └─ Complex, multi-file, or requires codebase synthesis
         │
@@ -506,10 +504,14 @@ docs  [claude-haiku-4-5]
         │
         ▼
       docs-writer-fast  [claude-haiku-4-5]
+        │  Returns: result JSON artifact (`docs_result`)
         │
         ▼
       docs-reviewer  [claude-sonnet-4-6]   (optional)
-        Returns: docs review result
+        │  Returns: result JSON artifact (`review_result`)
+        ▼
+      docs  [claude-haiku-4-5]
+          Records result artifacts; decides next step / returns final result
 ```
 
 ### Concrete Routing Examples
@@ -567,13 +569,61 @@ The `=== HANDOVER ... ===` blocks shown in prompts and examples are a human-read
 Canonical schemas:
 
 - `.opencode/schemas/handoff.schema.json` (what a handoff artifact must contain)
-- `.opencode/schemas/result.schema.json` (optional structured result objects agents may return)
+- `.opencode/schemas/result.schema.json` (required structured result objects execution/review agents must return)
 
 At minimum, handoff artifacts include required top-level fields like `version`, `kind`, `handoff_id`, `parent_handoff_id`, `from_agent`, `to_agent`, `created_at`, `status`, and a `payload` with fields like `goal`, `why`, `files_to_modify`, `changes`, and acceptance/abort criteria.
 
 Example filename shape:
 
 - `.opencode/handoffs/2026-03-16T18-31-00Z-coding-boss-to-planner.json`
+
+Result artifacts are also persisted under `.opencode/handoffs/` so the orchestrator can route follow-on work and return a machine-validated final artifact:
+
+- `.opencode/handoffs/<iso8601-utc>-result-<agent>.json` (example: `.opencode/handoffs/2026-03-17T00-30-00Z-result-docs-reviewer.json`)
+
+`source_handoff_id` links the result JSON back to the handoff that triggered that agent execution.
+
+Minimal paired example (handoff + result):
+
+```json
+{
+  "version": 1,
+  "kind": "docs_plan",
+  "handoff_id": "docs-2026-03-17T00:00:00Z-01",
+  "parent_handoff_id": null,
+  "from_agent": "docs",
+  "to_agent": "docs-writer-fast",
+  "created_at": "2026-03-17T00:00:00Z",
+  "status": "pending",
+  "payload": {
+    "goal": "Update README to require persisted result artifacts",
+    "why": "Make end-to-end workflow produce structured result JSON",
+    "files_to_modify": ["README.md"],
+    "files_to_inspect_only": [".opencode/schemas/result.schema.json"],
+    "do_not_modify": [".opencode/schemas/result.schema.json"],
+    "inputs_already_verified": ["result.schema.json defines required fields"],
+    "changes": ["README.md: require result JSON artifacts"],
+    "tests": ["none"],
+    "done_when": ["README requires persisted result artifacts"],
+    "abort_if": ["target sections cannot be identified"],
+    "examples": []
+  }
+}
+```
+
+```json
+{
+  "version": 1,
+  "result_type": "docs_result",
+  "agent": "docs-writer-fast",
+  "source_handoff_id": "docs-2026-03-17T00:00:00Z-01",
+  "created_at": "2026-03-17T00:05:00Z",
+  "status": "done",
+  "summary": "Updated workflow docs to require result artifacts",
+  "files_changed": ["README.md"],
+  "tests_run": ["none"]
+}
+```
 
 ---
 
@@ -674,9 +724,11 @@ To swap a model, update the `model` field for the relevant agent:
 The routing logic lives in the `prompt` field of `coding-boss` and `docs`. To change how tasks are classified:
 
 1. Edit the relevant `prompt` in your configuration file
-2. Preserve the JSON handoff contract formats (`.opencode/schemas/handoff.schema.json`) — downstream agents validate these; `=== HANDOVER ... ===` blocks are a human-readable convention
+2. Preserve the JSON contract formats (`.opencode/schemas/handoff.schema.json`, `.opencode/schemas/result.schema.json`) — downstream agents validate these; `=== HANDOVER ... ===` blocks are a human-readable convention
 3. Preserve the task allow-list entries for any agent you want to remain routable
 4. Test with representative tasks across each routing branch
+
+The orchestrator owns persistence/recording of both artifact types under `.opencode/handoffs/`: handoff artifacts it writes, and result artifacts returned by subagents.
 
 ---
 
