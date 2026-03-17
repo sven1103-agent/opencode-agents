@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "default_agent": "coding-boss",
+  "default_agent": "docs",
   "model": "opencode/claude-sonnet-4-6",
   "small_model": "opencode/claude-haiku-4-5",
 
