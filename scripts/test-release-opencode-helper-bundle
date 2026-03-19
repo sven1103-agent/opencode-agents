@@ -1,0 +1,123 @@
+#!/bin/sh
+
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd "$(dirname "$0")" && pwd)
+REPO_ROOT=$(CDPATH= cd "$SCRIPT_DIR/.." && pwd)
+BUILD_SCRIPT="$REPO_ROOT/scripts/release/build-opencode-helper-bundle.sh"
+
+sha256_file() {
+  file=$1
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$file" | awk '{print $1}'
+  else
+    shasum -a 256 "$file" | awk '{print $1}'
+  fi
+}
+
+assert_file() {
+  [ -f "$1" ] || {
+    printf 'missing expected file: %s\n' "$1" >&2
+    exit 1
+  }
+}
+
+assert_contains_line() {
+  file=$1
+  expected=$2
+  grep -Fqx "$expected" "$file" || {
+    printf 'expected line not found in %s: %s\n' "$file" "$expected" >&2
+    exit 1
+  }
+}
+
+assert_mode() {
+  path=$1
+  expected=$2
+  mode=$(stat -f '%Lp' "$path" 2>/dev/null || stat -c '%a' "$path")
+  [ "$mode" = "$expected" ] || {
+    printf 'unexpected mode for %s: got %s expected %s\n' "$path" "$mode" "$expected" >&2
+    exit 1
+  }
+}
+
+TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/opencode-helper-release-test.XXXXXX")
+trap 'rm -rf "$TMP_DIR"' EXIT INT TERM
+
+TAG=v9.9.9-test
+COMMIT_SHA=1234567890abcdef1234567890abcdef12345678
+
+OUT1="$TMP_DIR/out1"
+OUT2="$TMP_DIR/out2"
+mkdir -p "$OUT1" "$OUT2"
+
+sh "$BUILD_SCRIPT" --tag "$TAG" --commit-sha "$COMMIT_SHA" --output-dir "$OUT1" >/dev/null
+sh "$BUILD_SCRIPT" --tag "$TAG" --commit-sha "$COMMIT_SHA" --output-dir "$OUT2" >/dev/null
+
+BUNDLE_ROOT="opencode-helper-$TAG"
+TAR="$OUT1/$BUNDLE_ROOT.tar.gz"
+MANIFEST="$OUT1/$BUNDLE_ROOT-manifest.json"
+CHECKSUMS="$OUT1/$BUNDLE_ROOT-checksums.txt"
+
+assert_file "$TAR"
+assert_file "$MANIFEST"
+assert_file "$CHECKSUMS"
+
+EXPECTED_TAR_SHA=$(sha256_file "$TAR")
+EXPECTED_MANIFEST_SHA=$(sha256_file "$MANIFEST")
+
+assert_contains_line "$CHECKSUMS" "$EXPECTED_TAR_SHA  $BUNDLE_ROOT.tar.gz"
+assert_contains_line "$CHECKSUMS" "$EXPECTED_MANIFEST_SHA  $BUNDLE_ROOT-manifest.json"
+
+[ "$(wc -l < "$CHECKSUMS" | tr -d ' ')" = "2" ] || {
+  printf 'checksums file must have exactly two lines\n' >&2
+  exit 1
+}
+
+tar -tzf "$TAR" > "$TMP_DIR/tar-contents.txt"
+assert_contains_line "$TMP_DIR/tar-contents.txt" "$BUNDLE_ROOT/"
+assert_contains_line "$TMP_DIR/tar-contents.txt" "$BUNDLE_ROOT/scripts/"
+assert_contains_line "$TMP_DIR/tar-contents.txt" "$BUNDLE_ROOT/scripts/opencode-helper"
+assert_contains_line "$TMP_DIR/tar-contents.txt" "$BUNDLE_ROOT/scripts/opencode-helper-install"
+assert_contains_line "$TMP_DIR/tar-contents.txt" "$BUNDLE_ROOT/opencode.openai.json"
+assert_contains_line "$TMP_DIR/tar-contents.txt" "$BUNDLE_ROOT/opencode.mixed.json"
+assert_contains_line "$TMP_DIR/tar-contents.txt" "$BUNDLE_ROOT/.opencode/schemas/handoff.schema.json"
+assert_contains_line "$TMP_DIR/tar-contents.txt" "$BUNDLE_ROOT/.opencode/schemas/result.schema.json"
+assert_contains_line "$TMP_DIR/tar-contents.txt" "$BUNDLE_ROOT/release-manifest.json"
+
+tar -xzf "$TAR" -C "$TMP_DIR"
+
+assert_mode "$TMP_DIR/$BUNDLE_ROOT/scripts/opencode-helper" 755
+assert_mode "$TMP_DIR/$BUNDLE_ROOT/scripts/opencode-helper-install" 755
+assert_mode "$TMP_DIR/$BUNDLE_ROOT/opencode.openai.json" 644
+assert_mode "$TMP_DIR/$BUNDLE_ROOT/opencode.mixed.json" 644
+assert_mode "$TMP_DIR/$BUNDLE_ROOT/.opencode/schemas/handoff.schema.json" 644
+assert_mode "$TMP_DIR/$BUNDLE_ROOT/.opencode/schemas/result.schema.json" 644
+assert_mode "$TMP_DIR/$BUNDLE_ROOT/release-manifest.json" 644
+
+INNER_MANIFEST="$TMP_DIR/$BUNDLE_ROOT/release-manifest.json"
+cmp -s "$INNER_MANIFEST" "$MANIFEST" || {
+  printf 'inner and external manifest files differ\n' >&2
+  exit 1
+}
+
+grep -Fq '"bundle_format_version": 1' "$MANIFEST" || exit 1
+grep -Fq '"release_tag": "'$TAG'"' "$MANIFEST" || exit 1
+grep -Fq '"commit_sha": "'$COMMIT_SHA'"' "$MANIFEST" || exit 1
+grep -Fq '"bundle_root": "'$BUNDLE_ROOT'"' "$MANIFEST" || exit 1
+
+SHA_OUT1=$(sha256_file "$OUT1/$BUNDLE_ROOT.tar.gz")
+SHA_OUT2=$(sha256_file "$OUT2/$BUNDLE_ROOT.tar.gz")
+[ "$SHA_OUT1" = "$SHA_OUT2" ] || {
+  printf 'tarball is not deterministic for same inputs\n' >&2
+  exit 1
+}
+
+MANIFEST_SHA_OUT1=$(sha256_file "$OUT1/$BUNDLE_ROOT-manifest.json")
+MANIFEST_SHA_OUT2=$(sha256_file "$OUT2/$BUNDLE_ROOT-manifest.json")
+[ "$MANIFEST_SHA_OUT1" = "$MANIFEST_SHA_OUT2" ] || {
+  printf 'manifest is not deterministic for same inputs\n' >&2
+  exit 1
+}
+
+printf 'ok: release bundle tests passed\n'

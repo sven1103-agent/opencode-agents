@@ -1,0 +1,33 @@
+name: US-016 Release Bundle Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: us-016-release-bundle-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-bundle-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Shell syntax checks
+        run: |
+          sh -n scripts/release/build-opencode-helper-bundle.sh
+          sh -n scripts/test-release-opencode-helper-bundle
+
+      - name: Run release bundle tests
+        run: sh scripts/test-release-opencode-helper-bundle

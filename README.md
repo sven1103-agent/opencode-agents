@@ -736,6 +736,29 @@ Generated project-local layout:
       result.schema.json
 ```
 
+### Helper release bundle assets (US-016)
+
+Tagged helper releases (`v*`) now publish three deterministic GitHub Release assets:
+
+- `opencode-helper-<tag>.tar.gz`
+- `opencode-helper-<tag>-manifest.json`
+- `opencode-helper-<tag>-checksums.txt`
+
+Bundle archive layout is rooted at `opencode-helper-<tag>/` and preserves helper runtime-relative paths:
+
+```text
+opencode-helper-<tag>/
+  scripts/opencode-helper
+  scripts/opencode-helper-install
+  opencode.openai.json
+  opencode.mixed.json
+  .opencode/schemas/handoff.schema.json
+  .opencode/schemas/result.schema.json
+  release-manifest.json
+```
+
+The external `*-manifest.json` matches the in-bundle `release-manifest.json` bytes. `*-checksums.txt` contains SHA-256 lines for the tarball and manifest in `<sha256>  <filename>` format.
+
 ### Calling Agents
 
 ```bash

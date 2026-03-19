@@ -1,0 +1,48 @@
+name: Release opencode-helper
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-opencode-helper-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build release bundle artifacts
+        run: |
+          mkdir -p release-assets
+          sh scripts/release/build-opencode-helper-bundle.sh \
+            --tag "${GITHUB_REF_NAME}" \
+            --commit-sha "${GITHUB_SHA}" \
+            --output-dir release-assets
+
+      - name: Ensure release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 || \
+          gh release create "${GITHUB_REF_NAME}" \
+            --target "${GITHUB_SHA}" \
+            --title "${GITHUB_REF_NAME}" \
+            --notes "Automated release for ${GITHUB_REF_NAME}."
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" \
+            "release-assets/opencode-helper-${GITHUB_REF_NAME}.tar.gz" \
+            "release-assets/opencode-helper-${GITHUB_REF_NAME}-manifest.json" \
+            "release-assets/opencode-helper-${GITHUB_REF_NAME}-checksums.txt" \
+            --clobber
