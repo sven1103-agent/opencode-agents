@@ -1119,10 +1119,10 @@ Priority:
 - P0
 
 Status:
-- Planned
+- Done
 
 PR:
-- TBD
+- [#28](https://github.com/sven1103-agent/opencode-agents/pull/28)
 
 Type:
 - User-facing
@@ -1153,7 +1153,7 @@ Status:
 - Done
 
 PR:
-- TBD
+- [#32](https://github.com/sven1103-agent/opencode-agents/pull/32)
 
 Type:
 - User-facing
@@ -1180,10 +1180,10 @@ Priority:
 - P1
 
 Status:
-- Planned
+- Done
 
 PR:
-- TBD
+- [#33](https://github.com/sven1103-agent/opencode-agents/pull/33)
 
 Type:
 - User-facing
