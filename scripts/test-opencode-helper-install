@@ -1,0 +1,135 @@
+#!/bin/sh
+
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd "$(dirname "$0")" && pwd)
+INSTALLER="$SCRIPT_DIR/opencode-helper-install"
+
+fail() {
+  printf 'FAIL: %s\n' "$1" >&2
+  exit 1
+}
+
+assert_file_contains() {
+  file=$1
+  text=$2
+  [ -f "$file" ] || fail "missing file: $file"
+  grep -F "$text" "$file" >/dev/null 2>&1 || fail "expected '$text' in $file"
+}
+
+assert_file_not_contains() {
+  file=$1
+  text=$2
+  [ -f "$file" ] || return 0
+  grep -F "$text" "$file" >/dev/null 2>&1 && fail "did not expect '$text' in $file"
+}
+
+make_home() {
+  mktemp -d "${TMPDIR:-/tmp}/opencode-helper-install-test.XXXXXX"
+}
+
+make_fake_uname() {
+  fakebin=$1
+  mkdir -p "$fakebin"
+  cat >"$fakebin/uname" <<'EOF'
+#!/bin/sh
+printf '%s\n' "${TEST_UNAME:-Linux}"
+EOF
+  chmod +x "$fakebin/uname"
+}
+
+run_installer_yes() {
+  home=$1
+  shell_path=$2
+  test_uname=$3
+  fakebin="$home/fakebin"
+  make_fake_uname "$fakebin"
+  PATH="$fakebin:$PATH" HOME="$home" SHELL="$shell_path" TEST_UNAME="$test_uname" sh "$INSTALLER" --yes --bin-dir "$home/bin" >/dev/null
+}
+
+test_interactive_zsh_smoke() {
+  home=$(make_home)
+  printf 'y\n' | HOME="$home" SHELL="/bin/zsh" sh "$INSTALLER" --bin-dir "$home/bin" >/dev/null
+  rc="$home/.zshrc"
+  assert_file_contains "$rc" '# opencode-helper: BEGIN managed PATH'
+  assert_file_contains "$rc" "export PATH=\"$home/bin:\$PATH\""
+}
+
+test_yes_zsh() {
+  home=$(make_home)
+  run_installer_yes "$home" "/bin/zsh" "Linux"
+  rc="$home/.zshrc"
+  assert_file_contains "$rc" '# opencode-helper: BEGIN managed PATH'
+}
+
+test_bash_darwin_precedence() {
+  home=$(make_home)
+  : >"$home/.bash_profile"
+  : >"$home/.bashrc"
+  run_installer_yes "$home" "/bin/bash" "Darwin"
+  assert_file_contains "$home/.bash_profile" '# opencode-helper: BEGIN managed PATH'
+  assert_file_not_contains "$home/.bashrc" '# opencode-helper: BEGIN managed PATH'
+
+  home=$(make_home)
+  : >"$home/.bashrc"
+  run_installer_yes "$home" "/bin/bash" "Darwin"
+  assert_file_contains "$home/.bashrc" '# opencode-helper: BEGIN managed PATH'
+
+  home=$(make_home)
+  run_installer_yes "$home" "/bin/bash" "Darwin"
+  [ -f "$home/.bash_profile" ] || fail "expected .bash_profile to be created on Darwin"
+  assert_file_contains "$home/.bash_profile" '# opencode-helper: BEGIN managed PATH'
+}
+
+test_bash_linux_precedence() {
+  home=$(make_home)
+  : >"$home/.bashrc"
+  : >"$home/.bash_profile"
+  run_installer_yes "$home" "/bin/bash" "Linux"
+  assert_file_contains "$home/.bashrc" '# opencode-helper: BEGIN managed PATH'
+  assert_file_not_contains "$home/.bash_profile" '# opencode-helper: BEGIN managed PATH'
+
+  home=$(make_home)
+  : >"$home/.bash_profile"
+  run_installer_yes "$home" "/bin/bash" "Linux"
+  assert_file_contains "$home/.bash_profile" '# opencode-helper: BEGIN managed PATH'
+
+  home=$(make_home)
+  run_installer_yes "$home" "/bin/bash" "Linux"
+  [ -f "$home/.bashrc" ] || fail "expected .bashrc to be created on Linux"
+  assert_file_contains "$home/.bashrc" '# opencode-helper: BEGIN managed PATH'
+}
+
+test_fish_config_creation() {
+  home=$(make_home)
+  run_installer_yes "$home" "/usr/bin/fish" "Linux"
+  rc="$home/.config/fish/config.fish"
+  [ -d "$home/.config/fish" ] || fail "expected fish config parent dir"
+  assert_file_contains "$rc" 'set -gx PATH "'
+}
+
+test_yes_shell_missing_no_changes() {
+  home=$(make_home)
+  status=0
+  sh -c 'unset SHELL; HOME="$1" sh "$2" --yes --bin-dir "$1/bin" >/dev/null 2>&1' _ "$home" "$INSTALLER" || status=$?
+  [ "$status" -ne 0 ] || fail "expected non-zero exit when SHELL is unset"
+  [ -z "$(ls -A "$home")" ] || fail "expected no filesystem changes when SHELL unset"
+}
+
+test_yes_shell_unsupported_no_changes() {
+  home=$(make_home)
+  status=0
+  HOME="$home" SHELL="/bin/tcsh" sh "$INSTALLER" --yes --bin-dir "$home/bin" >/dev/null 2>&1 || status=$?
+  [ "$status" -ne 0 ] || fail "expected non-zero exit for unsupported shell"
+  [ -z "$(ls -A "$home")" ] || fail "expected no filesystem changes for unsupported shell"
+}
+
+test_interactive_zsh_smoke
+test_yes_zsh
+test_bash_darwin_precedence
+test_bash_linux_precedence
+test_fish_config_creation
+test_yes_shell_missing_no_changes
+test_yes_shell_unsupported_no_changes
+
+printf 'PASS: scripts/test-opencode-helper-install\n'
