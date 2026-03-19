@@ -4,6 +4,9 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd "$(dirname "$0")" && pwd)
 INSTALLER="$SCRIPT_DIR/opencode-helper-install"
+BUILD_SCRIPT="$SCRIPT_DIR/release/build-opencode-helper-bundle.sh"
+TEST_TAG="v9.9.9-test"
+TEST_COMMIT_SHA="1234567890abcdef1234567890abcdef12345678"
 
 fail() {
   printf 'FAIL: %s\n' "$1" >&2
@@ -64,86 +67,272 @@ EOF
   chmod +x "$fakebin/uname"
 }
 
+prepare_release_root() {
+  mode=$1
+  root=$(mktemp -d "${TMPDIR:-/tmp}/opencode-helper-release-server.XXXXXX")
+  download_dir="$root/download/$TEST_TAG"
+  mkdir -p "$root/api" "$download_dir"
+
+  sh "$BUILD_SCRIPT" --tag "$TEST_TAG" --commit-sha "$TEST_COMMIT_SHA" --output-dir "$download_dir" >/dev/null
+
+  cat >"$root/api/latest" <<EOF
+{
+  "tag_name": "$TEST_TAG"
+}
+EOF
+
+  checksums="$download_dir/opencode-helper-$TEST_TAG-checksums.txt"
+  bundle_name="opencode-helper-$TEST_TAG.tar.gz"
+  manifest_name="opencode-helper-$TEST_TAG-manifest.json"
+
+  case "$mode" in
+    valid)
+      ;;
+    missing-manifest)
+      rm -f "$checksums"
+      ;;
+    missing-entry)
+      grep -F "$manifest_name" "$checksums" > "$checksums.tmp"
+      mv "$checksums.tmp" "$checksums"
+      ;;
+    bad-checksum)
+      cat >"$checksums" <<EOF
+0000000000000000000000000000000000000000000000000000000000000000  $bundle_name
+1111111111111111111111111111111111111111111111111111111111111111  $manifest_name
+EOF
+      ;;
+    *)
+      fail "unknown release root mode: $mode"
+      ;;
+  esac
+
+  printf '%s\n' "$root"
+}
+
+start_static_server() {
+  root=$1
+  port_file="$root/server.port"
+  log_file="$root/server.log"
+
+  python3 - "$root" "$port_file" >"$log_file" 2>&1 <<'PY' &
+import functools
+import http.server
+import pathlib
+import socketserver
+import sys
+
+root = pathlib.Path(sys.argv[1])
+port_file = pathlib.Path(sys.argv[2])
+handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(root))
+
+with socketserver.TCPServer(("127.0.0.1", 0), handler) as httpd:
+    port_file.write_text(str(httpd.server_address[1]), encoding="ascii")
+    httpd.serve_forever()
+PY
+  server_pid=$!
+
+  i=0
+  while [ ! -f "$port_file" ]; do
+    i=$((i + 1))
+    if [ "$i" -gt 50 ]; then
+      kill "$server_pid" >/dev/null 2>&1 || true
+      fail "timed out waiting for static server"
+    fi
+    sleep 0.1
+  done
+
+  SERVER_PID=$server_pid
+  SERVER_PORT=$(cat "$port_file")
+  SERVER_API_BASE="http://127.0.0.1:$SERVER_PORT/api"
+  SERVER_DOWNLOAD_BASE="http://127.0.0.1:$SERVER_PORT/download"
+}
+
+stop_static_server() {
+  if [ -n "${SERVER_PID:-}" ]; then
+    kill "$SERVER_PID" >/dev/null 2>&1 || true
+    wait "$SERVER_PID" >/dev/null 2>&1 || true
+  fi
+  SERVER_PID=
+  SERVER_PORT=
+  SERVER_API_BASE=
+  SERVER_DOWNLOAD_BASE=
+}
+
 run_installer_yes() {
   home=$1
   shell_path=$2
   test_uname=$3
+  output_file=$4
+  api_base=$5
+  download_base=$6
+
   fakebin="$home/fakebin"
   make_fake_uname "$fakebin"
-  PATH="$fakebin:$PATH" HOME="$home" SHELL="$shell_path" TEST_UNAME="$test_uname" sh "$INSTALLER" --yes --bin-dir "$home/bin" >/dev/null
+
+  PATH="$fakebin:$PATH" \
+    HOME="$home" \
+    SHELL="$shell_path" \
+    TEST_UNAME="$test_uname" \
+    OPENCODE_HELPER_RELEASE_API_BASE="$api_base" \
+    OPENCODE_HELPER_RELEASE_DOWNLOAD_BASE="$download_base" \
+    sh "$INSTALLER" --yes --bin-dir "$home/bin" >"$output_file" 2>&1
 }
 
 test_interactive_zsh_smoke() {
+  root=$(prepare_release_root valid)
+  start_static_server "$root"
+
   home=$(make_home)
-  printf 'y\n' | HOME="$home" SHELL="/bin/zsh" sh "$INSTALLER" --bin-dir "$home/bin" >/dev/null
+  output_file="$home/output.log"
+  printf 'y\n' | HOME="$home" SHELL="/bin/zsh" \
+    OPENCODE_HELPER_RELEASE_API_BASE="$SERVER_API_BASE" \
+    OPENCODE_HELPER_RELEASE_DOWNLOAD_BASE="$SERVER_DOWNLOAD_BASE" \
+    sh "$INSTALLER" --bin-dir "$home/bin" >"$output_file" 2>&1
+
   rc="$home/.zshrc"
   assert_file_contains "$rc" '# opencode-helper: BEGIN managed PATH'
   assert_file_contains "$rc" "export PATH=\"$home/bin:\$PATH\""
+  [ -x "$home/bin/opencode-helper" ] || fail "expected installed helper binary"
+
+  output=$(cat "$output_file")
+  assert_text_contains "$output" "target release: $TEST_TAG"
+  assert_text_contains "$output" "verified SHA-256 for opencode-helper-$TEST_TAG.tar.gz"
+
+  stop_static_server
 }
 
 test_yes_zsh() {
+  root=$(prepare_release_root valid)
+  start_static_server "$root"
+
   home=$(make_home)
   output_file="$home/output.log"
-  fakebin="$home/fakebin"
-  make_fake_uname "$fakebin"
-  PATH="$fakebin:$PATH" HOME="$home" SHELL="/bin/zsh" TEST_UNAME="Linux" sh "$INSTALLER" --yes --bin-dir "$home/bin" >"$output_file" 2>&1
+  run_installer_yes "$home" "/bin/zsh" "Linux" "$output_file" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE"
+
   rc="$home/.zshrc"
   assert_file_contains "$rc" '# opencode-helper: BEGIN managed PATH'
 
   output=$(cat "$output_file")
   assert_text_contains "$output" 'info: install bin dir:'
   assert_text_contains "$output" 'info: shell config file:'
+  assert_text_contains "$output" "info: target release: $TEST_TAG"
+  assert_text_contains "$output" "ok: verified SHA-256 for opencode-helper-$TEST_TAG.tar.gz"
   assert_text_contains "$output" 'ok: installed opencode-helper to '
   assert_text_contains "$output" 'ok: updated PATH block in '
 
   esc=$(printf '\033')
   assert_text_not_contains "$output" "$esc"
+
+  stop_static_server
 }
 
 test_bash_darwin_precedence() {
+  root=$(prepare_release_root valid)
+  start_static_server "$root"
+
   home=$(make_home)
   : >"$home/.bash_profile"
   : >"$home/.bashrc"
-  run_installer_yes "$home" "/bin/bash" "Darwin"
+  run_installer_yes "$home" "/bin/bash" "Darwin" "$home/output.log" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE"
   assert_file_contains "$home/.bash_profile" '# opencode-helper: BEGIN managed PATH'
   assert_file_not_contains "$home/.bashrc" '# opencode-helper: BEGIN managed PATH'
 
   home=$(make_home)
   : >"$home/.bashrc"
-  run_installer_yes "$home" "/bin/bash" "Darwin"
+  run_installer_yes "$home" "/bin/bash" "Darwin" "$home/output.log" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE"
   assert_file_contains "$home/.bashrc" '# opencode-helper: BEGIN managed PATH'
 
   home=$(make_home)
-  run_installer_yes "$home" "/bin/bash" "Darwin"
+  run_installer_yes "$home" "/bin/bash" "Darwin" "$home/output.log" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE"
   [ -f "$home/.bash_profile" ] || fail "expected .bash_profile to be created on Darwin"
   assert_file_contains "$home/.bash_profile" '# opencode-helper: BEGIN managed PATH'
+
+  stop_static_server
 }
 
 test_bash_linux_precedence() {
+  root=$(prepare_release_root valid)
+  start_static_server "$root"
+
   home=$(make_home)
   : >"$home/.bashrc"
   : >"$home/.bash_profile"
-  run_installer_yes "$home" "/bin/bash" "Linux"
+  run_installer_yes "$home" "/bin/bash" "Linux" "$home/output.log" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE"
   assert_file_contains "$home/.bashrc" '# opencode-helper: BEGIN managed PATH'
   assert_file_not_contains "$home/.bash_profile" '# opencode-helper: BEGIN managed PATH'
 
   home=$(make_home)
   : >"$home/.bash_profile"
-  run_installer_yes "$home" "/bin/bash" "Linux"
+  run_installer_yes "$home" "/bin/bash" "Linux" "$home/output.log" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE"
   assert_file_contains "$home/.bash_profile" '# opencode-helper: BEGIN managed PATH'
 
   home=$(make_home)
-  run_installer_yes "$home" "/bin/bash" "Linux"
+  run_installer_yes "$home" "/bin/bash" "Linux" "$home/output.log" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE"
   [ -f "$home/.bashrc" ] || fail "expected .bashrc to be created on Linux"
   assert_file_contains "$home/.bashrc" '# opencode-helper: BEGIN managed PATH'
+
+  stop_static_server
 }
 
 test_fish_config_creation() {
+  root=$(prepare_release_root valid)
+  start_static_server "$root"
+
   home=$(make_home)
-  run_installer_yes "$home" "/usr/bin/fish" "Linux"
+  run_installer_yes "$home" "/usr/bin/fish" "Linux" "$home/output.log" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE"
   rc="$home/.config/fish/config.fish"
   [ -d "$home/.config/fish" ] || fail "expected fish config parent dir"
   assert_file_contains "$rc" 'set -gx PATH "'
+
+  stop_static_server
+}
+
+test_missing_checksum_manifest_blocks_install() {
+  root=$(prepare_release_root missing-manifest)
+  start_static_server "$root"
+
+  home=$(make_home)
+  output_file="$home/output.log"
+  status=0
+  run_installer_yes "$home" "/bin/zsh" "Linux" "$output_file" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE" || status=$?
+  [ "$status" -ne 0 ] || fail "expected non-zero exit for missing checksum manifest"
+  [ ! -e "$home/bin/opencode-helper" ] || fail "did not expect installed helper on checksum manifest failure"
+  [ ! -e "$home/.zshrc" ] || fail "did not expect shell config changes on checksum manifest failure"
+  assert_text_contains "$(cat "$output_file")" 'failed to download checksum manifest:'
+
+  stop_static_server
+}
+
+test_missing_checksum_entry_blocks_install() {
+  root=$(prepare_release_root missing-entry)
+  start_static_server "$root"
+
+  home=$(make_home)
+  output_file="$home/output.log"
+  status=0
+  run_installer_yes "$home" "/bin/zsh" "Linux" "$output_file" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE" || status=$?
+  [ "$status" -ne 0 ] || fail "expected non-zero exit for missing checksum entry"
+  [ ! -e "$home/bin/opencode-helper" ] || fail "did not expect installed helper on checksum entry failure"
+  [ ! -e "$home/.zshrc" ] || fail "did not expect shell config changes on checksum entry failure"
+  assert_text_contains "$(cat "$output_file")" 'checksum manifest missing bundle entry:'
+
+  stop_static_server
+}
+
+test_checksum_mismatch_blocks_install() {
+  root=$(prepare_release_root bad-checksum)
+  start_static_server "$root"
+
+  home=$(make_home)
+  output_file="$home/output.log"
+  status=0
+  run_installer_yes "$home" "/bin/zsh" "Linux" "$output_file" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE" || status=$?
+  [ "$status" -ne 0 ] || fail "expected non-zero exit for checksum mismatch"
+  [ ! -e "$home/bin/opencode-helper" ] || fail "did not expect installed helper on checksum mismatch"
+  [ ! -e "$home/.zshrc" ] || fail "did not expect shell config changes on checksum mismatch"
+  assert_text_contains "$(cat "$output_file")" 'bundle checksum mismatch for '
+
+  stop_static_server
 }
 
 test_yes_shell_missing_no_changes() {
@@ -162,11 +351,16 @@ test_yes_shell_unsupported_no_changes() {
   [ -z "$(ls -A "$home")" ] || fail "expected no filesystem changes for unsupported shell"
 }
 
+trap 'stop_static_server' EXIT INT TERM
+
 test_interactive_zsh_smoke
 test_yes_zsh
 test_bash_darwin_precedence
 test_bash_linux_precedence
 test_fish_config_creation
+test_missing_checksum_manifest_blocks_install
+test_missing_checksum_entry_blocks_install
+test_checksum_mismatch_blocks_install
 test_yes_shell_missing_no_changes
 test_yes_shell_unsupported_no_changes
 

@@ -5,6 +5,10 @@ set -eu
 BEGIN_SENTINEL="# opencode-helper: BEGIN managed PATH"
 END_SENTINEL="# opencode-helper: END managed PATH"
 
+RELEASE_REPO_DEFAULT="sven1103-agent/opencode-agents"
+INSTALL_WORK_DIR=
+FETCHED_HELPER_PATH=
+
 command_name() {
   basename "$0"
 }
@@ -50,7 +54,7 @@ err() {
 
 usage() {
   cat <<EOF
-$(command_name) - install opencode-helper globally and update PATH
+$(command_name) - install opencode-helper from an official release bundle and update PATH
 
 Usage:
   $(command_name) [--yes] [--bin-dir PATH]
@@ -61,6 +65,144 @@ Options:
   --bin-dir PATH  Install directory (default: ~/.local/bin)
   --help          Show this help
 EOF
+}
+
+cleanup_install_work_dir() {
+  if [ -n "${INSTALL_WORK_DIR:-}" ] && [ -d "$INSTALL_WORK_DIR" ]; then
+    rm -rf "$INSTALL_WORK_DIR"
+  fi
+}
+
+trap cleanup_install_work_dir EXIT INT TERM
+
+sha256_file() {
+  file=$1
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$file" | awk '{print $1}'
+  else
+    shasum -a 256 "$file" | awk '{print $1}'
+  fi
+}
+
+download_to_file() {
+  url=$1
+  dest=$2
+
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$url" -o "$dest"
+    return $?
+  fi
+  if command -v wget >/dev/null 2>&1; then
+    wget -q -O "$dest" "$url"
+    return $?
+  fi
+
+  err "missing downloader: require curl or wget"
+  return 1
+}
+
+latest_release_tag() {
+  api_base=$1
+  out_file=$2
+
+  download_to_file "$api_base/latest" "$out_file" || {
+    err "failed to fetch latest release metadata"
+    return 1
+  }
+
+  tag=$(awk -F '"' '/"tag_name"[[:space:]]*:/ {print $4; exit}' "$out_file")
+  if [ -z "$tag" ]; then
+    err "latest release metadata missing tag_name"
+    return 1
+  fi
+
+  LATEST_RELEASE_TAG=$tag
+  return 0
+}
+
+verify_bundle_checksum() {
+  bundle_path=$1
+  checksums_path=$2
+  bundle_name=$3
+
+  [ -f "$checksums_path" ] || {
+    err "missing checksum manifest: $checksums_path"
+    return 1
+  }
+
+  expected_sha=$(awk -v wanted="$bundle_name" '$2==wanted {print $1; found=1; exit} END {if (!found) exit 1}' "$checksums_path") || {
+    err "checksum manifest missing bundle entry: $bundle_name"
+    return 1
+  }
+
+  actual_sha=$(sha256_file "$bundle_path") || {
+    err "failed to compute bundle checksum"
+    return 1
+  }
+
+  if [ "$actual_sha" != "$expected_sha" ]; then
+    err "bundle checksum mismatch for $bundle_name"
+    return 1
+  fi
+
+  return 0
+}
+
+fetch_release_helper() {
+  release_repo=${OPENCODE_HELPER_RELEASE_REPO:-$RELEASE_REPO_DEFAULT}
+  api_base=${OPENCODE_HELPER_RELEASE_API_BASE:-https://api.github.com/repos/$release_repo/releases}
+  download_base=${OPENCODE_HELPER_RELEASE_DOWNLOAD_BASE:-https://github.com/$release_repo/releases/download}
+
+  INSTALL_WORK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/opencode-helper-install.XXXXXX") || {
+    err "failed to create temporary workspace"
+    return 1
+  }
+
+  release_meta="$INSTALL_WORK_DIR/latest-release.json"
+  latest_release_tag "$api_base" "$release_meta" || return 1
+  release_tag=$LATEST_RELEASE_TAG
+
+  bundle_root="opencode-helper-$release_tag"
+  bundle_name="$bundle_root.tar.gz"
+  checksums_name="$bundle_root-checksums.txt"
+  bundle_url="$download_base/$release_tag/$bundle_name"
+  checksums_url="$download_base/$release_tag/$checksums_name"
+  bundle_path="$INSTALL_WORK_DIR/$bundle_name"
+  checksums_path="$INSTALL_WORK_DIR/$checksums_name"
+  extract_dir="$INSTALL_WORK_DIR/extracted"
+
+  say_info "target release: $release_tag" >&2
+  say_info "downloading release bundle" >&2
+
+  download_to_file "$bundle_url" "$bundle_path" || {
+    err "failed to download release bundle: $bundle_url"
+    return 1
+  }
+  download_to_file "$checksums_url" "$checksums_path" || {
+    err "failed to download checksum manifest: $checksums_url"
+    return 1
+  }
+
+  verify_bundle_checksum "$bundle_path" "$checksums_path" "$bundle_name" || return 1
+  say_ok "verified SHA-256 for $bundle_name" >&2
+
+  mkdir -p "$extract_dir" || {
+    err "failed to prepare extraction directory"
+    return 1
+  }
+  tar -xzf "$bundle_path" -C "$extract_dir" || {
+    err "failed to extract release bundle"
+    return 1
+  }
+
+  helper_path="$extract_dir/$bundle_root/scripts/opencode-helper"
+  if [ ! -f "$helper_path" ]; then
+    err "release bundle missing helper executable"
+    return 1
+  fi
+
+  FETCHED_HELPER_PATH=$helper_path
+  return 0
 }
 
 is_absolute_path() {
@@ -297,9 +439,6 @@ confirm_or_exit() {
   esac
 }
 
-SCRIPT_DIR=$(CDPATH= cd "$(dirname "$0")" && pwd)
-SOURCE_HELPER="$SCRIPT_DIR/opencode-helper"
-
 init_status_theme
 
 ASSUME_YES=0
@@ -342,6 +481,8 @@ say_info "shell config file: $RC_FILE"
 
 confirm_or_exit "Proceed with installation?" || exit 1
 
+fetch_release_helper || exit 1
+SOURCE_HELPER=$FETCHED_HELPER_PATH
 copy_helper_binary "$SOURCE_HELPER" "$BIN_DIR" || exit 1
 update_rc_file "$RC_FILE" "$BIN_DIR" "$SHELL_NAME" || exit 1
 
