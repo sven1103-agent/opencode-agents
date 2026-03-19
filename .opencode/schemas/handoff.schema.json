@@ -109,27 +109,6 @@
         "abort_if": {
           "$ref": "#/$defs/stringList"
         },
-        "architecture_decisions": {
-          "$ref": "#/$defs/stringList"
-        },
-        "target_symbols_or_sections": {
-          "$ref": "#/$defs/stringList"
-        },
-        "execution_order": {
-          "$ref": "#/$defs/stringList"
-        },
-        "interfaces_or_contracts_affected": {
-          "$ref": "#/$defs/stringList"
-        },
-        "edge_cases_or_failure_paths": {
-          "$ref": "#/$defs/stringList"
-        },
-        "out_of_scope": {
-          "$ref": "#/$defs/stringList"
-        },
-        "verification_expectations": {
-          "$ref": "#/$defs/stringList"
-        },
         "examples": {
           "$ref": "#/$defs/stringList"
         },
@@ -142,50 +121,6 @@
       }
     }
   },
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "kind": {
-            "const": "implementation_plan"
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "payload": {
-            "required": [
-              "architecture_decisions",
-              "target_symbols_or_sections",
-              "execution_order",
-              "interfaces_or_contracts_affected",
-              "edge_cases_or_failure_paths",
-              "out_of_scope",
-              "verification_expectations"
-            ]
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "kind": {
-            "const": "docs_plan"
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "payload": {
-            "required": [
-              "examples"
-            ]
-          }
-        }
-      }
-    }
-  ],
   "$defs": {
     "stringList": {
       "type": "array",

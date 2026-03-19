@@ -615,11 +615,9 @@ The optional `-<slug>` is for scanability only; it must not be required for uniq
 
 ISO timestamps stay in JSON metadata fields (for example: `created_at`) for auditability/traceability, but are no longer the main filename/ID humans read daily.
 
-At minimum, handoff artifacts include required top-level fields like `version`, `kind`, `handoff_id`, `parent_handoff_id`, `from_agent`, `to_agent`, `created_at`, `status`, and a `payload`. For `implementation_plan`, that payload is the canonical recovery record and captures not just `goal`, `why`, `files_to_modify`, `changes`, and acceptance/abort criteria, but also architecture decisions, target symbols or sections, execution order, contract impacts, edge cases, out-of-scope boundaries, and verification expectations.
+At minimum, handoff artifacts include required top-level fields like `version`, `kind`, `handoff_id`, `parent_handoff_id`, `from_agent`, `to_agent`, `created_at`, `status`, and a `payload` with fields like `goal`, `why`, `files_to_modify`, `changes`, and acceptance/abort criteria.
 
 `source_handoff_id` links the result JSON back to the handoff that triggered that agent execution.
-
-Implementation results are likewise structured for replay and review. `implementation_summary` now records completed plan steps, deviations from plan, changed symbols, verification results, and remaining follow-ups so a fresh-context reviewer or recovery run does not depend on transient chat context.
 
 #### Referencing Examples
 

@@ -66,21 +66,6 @@
     "review_focus": {
       "$ref": "#/$defs/stringList"
     },
-    "plan_steps_completed": {
-      "$ref": "#/$defs/stringList"
-    },
-    "deviations_from_plan": {
-      "$ref": "#/$defs/stringList"
-    },
-    "symbols_changed": {
-      "$ref": "#/$defs/stringList"
-    },
-    "verification_results": {
-      "$ref": "#/$defs/stringList"
-    },
-    "remaining_followups": {
-      "$ref": "#/$defs/stringList"
-    },
     "findings": {
       "$ref": "#/$defs/stringList"
     },
@@ -98,112 +83,8 @@
     },
     "suggested_next_agent": {
       "type": "string"
-    },
-    "blocked_step": {
-      "type": "string"
     }
   },
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "result_type": {
-            "const": "implementation_summary"
-          }
-        }
-      },
-      "then": {
-        "required": [
-          "summary",
-          "files_changed",
-          "files_intentionally_not_changed",
-          "tests_run",
-          "known_risks_or_limitations",
-          "review_focus",
-          "plan_steps_completed",
-          "deviations_from_plan",
-          "symbols_changed",
-          "verification_results",
-          "remaining_followups"
-        ],
-        "properties": {
-          "status": {
-            "const": "done"
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "result_type": {
-            "const": "review_result"
-          }
-        }
-      },
-      "then": {
-        "required": [
-          "summary",
-          "findings",
-          "checks_performed",
-          "recommended_next_step"
-        ],
-        "properties": {
-          "status": {
-            "enum": [
-              "approve",
-              "needs_changes"
-            ]
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "result_type": {
-            "const": "docs_result"
-          }
-        }
-      },
-      "then": {
-        "required": [
-          "summary",
-          "files_changed",
-          "files_intentionally_not_changed",
-          "tests_run",
-          "known_risks_or_limitations"
-        ],
-        "properties": {
-          "status": {
-            "const": "done"
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "result_type": {
-            "const": "blocked"
-          }
-        }
-      },
-      "then": {
-        "required": [
-          "reason",
-          "needs",
-          "suggested_next_agent",
-          "blocked_step"
-        ],
-        "properties": {
-          "status": {
-            "const": "blocked"
-          }
-        }
-      }
-    }
-  ],
   "$defs": {
     "stringList": {
       "type": "array",
