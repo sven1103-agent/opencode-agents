@@ -930,10 +930,10 @@ Priority:
 - P1
 
 Status:
-- Planned
+- Done
 
 PR:
-- TBD
+- https://github.com/sven1103-agent/opencode-agents/pull/32
 
 Type:
 - Maintainer-facing
