@@ -288,6 +288,19 @@ Installed assets should be attributable to the CLI release that provided them.
 Depends on:
 - [REQ-F-009](#req-f-009)
 
+#### <a id="req-nf-007"></a>REQ-NF-007 - Installer Output UX (Theme, Icons, Accessibility)
+
+The installer wizard (`opencode-helper-install`) should provide a pleasant, themed terminal experience that is still accessible and robust across terminals and automation.
+
+Requirements:
+- Use a small, consistent set of plain Unicode status icons as line prefixes (e.g. `✓` ok, `!` warning, `x` error, `?` question, `i` info).
+- Color is optional, but output shall never rely on color alone; each status line must include a textual label (e.g. `ok:`, `warn:`, `error:`).
+- Icons shall be used sparingly (at most one status icon per line, as a prefix).
+- Support explicit fallbacks:
+  - `--no-color` disables ANSI colors.
+  - `--ascii` disables Unicode icons (and uses ASCII-only prefixes such as `[ok]`, `[warn]`, `[err]`, `[?]`, `[i]`).
+- When stdout is not a TTY (e.g. piped output / CI logs), color and Unicode icons should be disabled by default.
+
 ---
 
 ## First Features
@@ -412,6 +425,7 @@ Satisfies:
 - [REQ-F-013](#req-f-013)
 - [REQ-F-014](#req-f-014)
 - [REQ-NF-005](#req-nf-005)
+- [REQ-NF-007](#req-nf-007)
 
 ---
 
@@ -420,7 +434,7 @@ Satisfies:
 | ID | Type | Links To |
 |---|---|---|
 | [DEC-001](#dec-001) | Decision | [PRD-001](#prd-001), [REQ-F-001](#req-f-001), [REQ-F-002](#req-f-002), [REQ-F-008](#req-f-008), [REQ-NF-002](#req-nf-002), [REQ-NF-003](#req-nf-003) |
-| [PRD-001](#prd-001) | PRD | [REQ-F-001](#req-f-001) to [REQ-F-014](#req-f-014), [REQ-NF-001](#req-nf-001) to [REQ-NF-006](#req-nf-006) |
+| [PRD-001](#prd-001) | PRD | [REQ-F-001](#req-f-001) to [REQ-F-014](#req-f-014), [REQ-NF-001](#req-nf-001) to [REQ-NF-007](#req-nf-007) |
 | [REQ-F-001](#req-f-001) | Functional Requirement | [FEAT-001](#feat-001), [FEAT-002](#feat-002), [FEAT-003](#feat-003) |
 | [REQ-F-001a](#req-f-001a) | Functional Requirement | [FEAT-001](#feat-001), [FEAT-002](#feat-002) |
 | [REQ-F-002](#req-f-002) | Functional Requirement | [FEAT-001](#feat-001), [FEAT-004](#feat-004) |
@@ -442,9 +456,12 @@ Satisfies:
 | [REQ-NF-004](#req-nf-004) | Non-Functional Requirement | [FEAT-005](#feat-005), [FEAT-006](#feat-006) |
 | [REQ-NF-005](#req-nf-005) | Non-Functional Requirement | [FEAT-001](#feat-001) to [FEAT-009](#feat-009) |
 | [REQ-NF-006](#req-nf-006) | Non-Functional Requirement | [FEAT-005](#feat-005), [FEAT-007](#feat-007) |
+| [REQ-NF-007](#req-nf-007) | Non-Functional Requirement | [FEAT-009](#feat-009) |
 | [FEAT-009](#feat-009) | Feature | [REQ-F-012](#req-f-012), [REQ-F-013](#req-f-013), [REQ-F-014](#req-f-014), [US-012](#us-012), [US-013](#us-013) |
 | [US-012](#us-012) | User Story | [FEAT-009](#feat-009), [REQ-F-012](#req-f-012), [REQ-F-014](#req-f-014) |
 | [US-013](#us-013) | User Story | [FEAT-009](#feat-009), [REQ-F-012](#req-f-012), [REQ-F-013](#req-f-013) |
+| [US-014](#us-014) | User Story | [FEAT-009](#feat-009), [REQ-NF-007](#req-nf-007) |
+| [US-015](#us-015) | User Story | [FEAT-009](#feat-009), [REQ-NF-007](#req-nf-007) |
 
 ---
 
@@ -794,6 +811,53 @@ Acceptance criteria:
 - Given the active shell is fish, when the wizard updates `PATH`, then it writes to `~/.config/fish/config.fish`.
 - Given `SHELL` is set to a supported shell, when running `opencode-helper-install --yes --bin-dir <path>`, then the install completes without prompts and updates the shell config derived from `SHELL`.
 - Given `SHELL` is unset (or unsupported), when running `opencode-helper-install --yes --bin-dir <path>`, then the command exits non-zero without making changes.
+
+---
+
+### <a id="us-014"></a>US-014 - Installer output is themed and readable
+
+Priority:
+- P1
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-009](#feat-009)
+
+Related requirements:
+- [REQ-NF-007](#req-nf-007)
+
+Story:
+- As a developer, I want `opencode-helper-install` to present a clear, themed terminal wizard with status indicators so that I feel confident and engaged during installation.
+
+Acceptance criteria:
+- Status lines use a consistent textual label set (at least `ok:`, `warn:`, `error:`) and may include a single plain Unicode icon prefix.
+- No output relies on color alone to convey meaning.
+
+---
+
+### <a id="us-015"></a>US-015 - Installer output has accessible fallbacks for logs and CI
+
+Priority:
+- P1
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-009](#feat-009)
+
+Related requirements:
+- [REQ-NF-007](#req-nf-007)
+
+Story:
+- As a developer, I want to disable colors and Unicode icons (or have them auto-disabled in non-interactive logs) so that the installer output stays readable in any terminal, CI system, or pasted log.
+
+Acceptance criteria:
+- Given `opencode-helper-install --no-color`, then output contains no ANSI color escape sequences.
+- Given `opencode-helper-install --ascii`, then output contains no non-ASCII characters.
+- Given stdout is not a TTY, then the installer disables colors and Unicode icons by default.
 
 Template:
 
