@@ -474,12 +474,27 @@ User stories will be added later and must:
 - include acceptance criteria
 - identify whether the story is user-facing, maintainer-facing, or release-engineering-facing
 
+Traceability workflow:
+- PRs that implement a user story must reference the story ID in the PR title and body.
+- PR title format: `US-###: <short title>`
+- PR body must contain a line: `Implements: US-###`
+- The implementation PR must update the corresponding story entry in this document:
+  - set `Status: Done`
+  - set `PR: <link or #number>`
+- Practical: if the PR number/URL is not known yet, open the PR with `PR: TBD`, then update the same PR branch before merge to replace `TBD` with the actual PR reference.
+
 ### User Stories (Iteration 1)
 
 ### US-001 - List available bundled presets with descriptions
 
 Priority:
 - P0
+
+Status:
+- Planned
+
+PR:
+- TBD
 
 Type:
 - User-facing
@@ -505,6 +520,12 @@ Acceptance criteria:
 
 Priority:
 - P0
+
+Status:
+- Planned
+
+PR:
+- TBD
 
 Type:
 - User-facing
@@ -534,6 +555,12 @@ Acceptance criteria:
 Priority:
 - P0
 
+Status:
+- Planned
+
+PR:
+- TBD
+
 Type:
 - User-facing
 
@@ -560,6 +587,12 @@ Acceptance criteria:
 Priority:
 - P0
 
+Status:
+- Planned
+
+PR:
+- TBD
+
 Type:
 - User-facing
 
@@ -584,6 +617,12 @@ Acceptance criteria:
 
 Priority:
 - P0
+
+Status:
+- Planned
+
+PR:
+- TBD
 
 Type:
 - User-facing
@@ -612,6 +651,12 @@ Acceptance criteria:
 Priority:
 - P1
 
+Status:
+- Planned
+
+PR:
+- TBD
+
 Type:
 - User-facing
 
@@ -636,6 +681,12 @@ Acceptance criteria:
 
 Priority:
 - P0
+
+Status:
+- Planned
+
+PR:
+- TBD
 
 Type:
 - User-facing
@@ -662,6 +713,12 @@ Acceptance criteria:
 Priority:
 - P0
 
+Status:
+- Planned
+
+PR:
+- TBD
+
 Type:
 - User-facing
 
@@ -687,6 +744,12 @@ Acceptance criteria:
 Priority:
 - P0
 
+Status:
+- Planned
+
+PR:
+- TBD
+
 Type:
 - User-facing
 
@@ -711,6 +774,12 @@ Acceptance criteria:
 
 Priority:
 - P1
+
+Status:
+- Planned
+
+PR:
+- TBD
 
 Type:
 - User-facing
@@ -740,6 +809,12 @@ Acceptance criteria:
 Priority:
 - P1
 
+Status:
+- Planned
+
+PR:
+- TBD
+
 Type:
 - Maintainer-facing
 
@@ -764,6 +839,12 @@ Acceptance criteria:
 
 Priority:
 - P0
+
+Status:
+- Planned
+
+PR:
+- TBD
 
 Type:
 - User-facing
@@ -790,6 +871,12 @@ Acceptance criteria:
 
 Priority:
 - P0
+
+Status:
+- Planned
+
+PR:
+- TBD
 
 Type:
 - User-facing
@@ -819,6 +906,12 @@ Acceptance criteria:
 Priority:
 - P1
 
+Status:
+- Planned
+
+PR:
+- TBD
+
 Type:
 - User-facing
 
@@ -842,6 +935,12 @@ Acceptance criteria:
 Priority:
 - P1
 
+Status:
+- Planned
+
+PR:
+- TBD
+
 Type:
 - User-facing
 
@@ -862,6 +961,12 @@ Acceptance criteria:
 Template:
 
 ### US-001 - Title
+
+Status:
+- Planned | In progress | In review | Done
+
+PR:
+- TBD | #123 | https://...
 
 Type:
 - User-facing | Maintainer-facing | Release-engineering-facing
