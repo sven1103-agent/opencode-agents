@@ -8,6 +8,8 @@ END_SENTINEL="# opencode-helper: END managed PATH"
 RELEASE_REPO_DEFAULT="sven1103-agent/opencode-agents"
 INSTALL_WORK_DIR=
 FETCHED_HELPER_PATH=
+FETCHED_BUNDLE_PATH=
+FETCHED_RELEASE_TAG=
 
 command_name() {
   basename "$0"
@@ -242,9 +244,132 @@ fetch_release_helper() {
     err "release bundle missing helper executable"
     return 1
   fi
+  manifest_path="$extract_dir/$bundle_root/release-manifest.json"
+  if [ ! -f "$manifest_path" ]; then
+    err "release bundle missing release-manifest.json"
+    return 1
+  fi
 
   FETCHED_HELPER_PATH=$helper_path
+  FETCHED_BUNDLE_PATH="$extract_dir/$bundle_root"
+  FETCHED_RELEASE_TAG=$release_tag
   return 0
+}
+
+install_home_default() {
+  if [ -n "${OPENCODE_HELPER_INSTALL_HOME:-}" ]; then
+    printf '%s\n' "$OPENCODE_HELPER_INSTALL_HOME"
+    return 0
+  fi
+
+  if [ -n "${XDG_DATA_HOME:-}" ]; then
+    printf '%s\n' "$XDG_DATA_HOME/opencode-helper"
+    return 0
+  fi
+
+  printf '%s\n' "$HOME/.local/share/opencode-helper"
+}
+
+copy_release_bundle_to_install_home() {
+  src_bundle=$1
+  release_tag=$2
+  install_home=$3
+
+  release_parent="$install_home/releases"
+  release_dir="$release_parent/$release_tag"
+
+  [ -d "$src_bundle" ] || {
+    err "source release bundle not found: $src_bundle"
+    return 1
+  }
+
+  mkdir -p "$release_parent" || {
+    err "failed to create install releases directory: $release_parent"
+    return 1
+  }
+
+  rm -rf "$release_dir.tmp.$$"
+  cp -R "$src_bundle" "$release_dir.tmp.$$" || {
+    err "failed to stage release bundle copy"
+    rm -rf "$release_dir.tmp.$$"
+    return 1
+  }
+
+  rm -rf "$release_dir"
+  mv "$release_dir.tmp.$$" "$release_dir" || {
+    err "failed to install release bundle"
+    return 1
+  }
+
+  printf '%s\n' "$release_dir"
+}
+
+activate_release_current_symlink() {
+  install_home=$1
+  release_dir=$2
+
+  current_path="$install_home/current"
+  current_tmp="$install_home/current.tmp.$$"
+
+  ln -s "$release_dir" "$current_tmp" || {
+    err "failed to create staged current symlink"
+    return 1
+  }
+  mv -f "$current_tmp" "$current_path" || {
+    err "failed to activate current release symlink"
+    rm -f "$current_tmp"
+    return 1
+  }
+
+  return 0
+}
+
+write_launcher_script() {
+  bindir=$1
+  install_home=$2
+  dest="$bindir/opencode-helper"
+
+  if [ ! -d "$bindir" ]; then
+    if is_privileged_dir "$bindir"; then
+      sudo mkdir -p "$bindir"
+    else
+      mkdir -p "$bindir"
+    fi
+  fi
+
+  launcher_tmp=$(mktemp "${TMPDIR:-/tmp}/opencode-helper-launcher.XXXXXX") || {
+    err "failed to prepare launcher"
+    return 1
+  }
+
+  cat >"$launcher_tmp" <<EOF
+#!/bin/sh
+
+set -eu
+
+INSTALL_HOME="$(printf '%s' "$install_home")"
+HELPER="\$INSTALL_HOME/current/scripts/opencode-helper"
+
+if [ ! -x "\$HELPER" ]; then
+  printf 'error: installed helper missing or not executable: %s\n' "\$HELPER" >&2
+  exit 1
+fi
+
+exec "\$HELPER" "\$@"
+EOF
+
+  chmod +x "$launcher_tmp"
+
+  if is_privileged_dir "$bindir"; then
+    say_info "privileged install location detected; requesting sudo for binary write"
+    sudo cp "$launcher_tmp" "$dest"
+    sudo chmod +x "$dest"
+  else
+    cp "$launcher_tmp" "$dest"
+    chmod +x "$dest"
+  fi
+
+  rm -f "$launcher_tmp"
 }
 
 is_absolute_path() {
@@ -443,29 +568,14 @@ update_rc_file() {
 copy_helper_binary() {
   src=$1
   bindir=$2
-  dest="$bindir/opencode-helper"
+  install_home=$3
 
   if [ ! -f "$src" ]; then
     err "source helper not found: $src"
     return 1
   fi
 
-  if [ ! -d "$bindir" ]; then
-    if is_privileged_dir "$bindir"; then
-      sudo mkdir -p "$bindir"
-    else
-      mkdir -p "$bindir"
-    fi
-  fi
-
-  if is_privileged_dir "$bindir"; then
-    say_info "privileged install location detected; requesting sudo for binary write"
-    sudo cp "$src" "$dest"
-    sudo chmod +x "$dest"
-  else
-    cp "$src" "$dest"
-    chmod +x "$dest"
-  fi
+  write_launcher_script "$bindir" "$install_home"
 }
 
 is_interactive_mode() {
@@ -607,7 +717,18 @@ fi
 
 fetch_release_helper "$RELEASE_TAG" || exit 1
 SOURCE_HELPER=$FETCHED_HELPER_PATH
-copy_helper_binary "$SOURCE_HELPER" "$BIN_DIR" || exit 1
+
+SOURCE_BUNDLE=$FETCHED_BUNDLE_PATH
+INSTALL_HOME=$(expand_home_path "$(install_home_default)")
+if ! is_absolute_path "$INSTALL_HOME"; then
+  err "install home must resolve to an absolute path: $INSTALL_HOME"
+  exit 1
+fi
+say_info "install home: $INSTALL_HOME"
+
+RELEASE_DIR=$(copy_release_bundle_to_install_home "$SOURCE_BUNDLE" "$RELEASE_TAG" "$INSTALL_HOME") || exit 1
+copy_helper_binary "$SOURCE_HELPER" "$BIN_DIR" "$INSTALL_HOME" || exit 1
+activate_release_current_symlink "$INSTALL_HOME" "$RELEASE_DIR" || exit 1
 
 PATH_UPDATED=0
 if SHELL_NAME=$(detect_shell_name 2>/dev/null); then

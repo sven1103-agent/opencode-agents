@@ -14,6 +14,15 @@ fail() {
   exit 1
 }
 
+sha256_file() {
+  file=$1
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$file" | awk '{print $1}'
+  else
+    shasum -a 256 "$file" | awk '{print $1}'
+  fi
+}
+
 assert_file_contains() {
   file=$1
   text=$2
@@ -52,6 +61,14 @@ assert_text_not_contains() {
     *"$expected"*) fail "did not expect '$expected' in text output" ;;
     *) ;;
   esac
+}
+
+assert_symlink_points_to() {
+  path=$1
+  expected=$2
+  [ -L "$path" ] || fail "expected symlink: $path"
+  actual=$(readlink "$path")
+  [ "$actual" = "$expected" ] || fail "expected symlink $path -> $expected, got $actual"
 }
 
 make_home() {
@@ -101,12 +118,26 @@ EOF
   checksums="$download_latest/opencode-helper-$TEST_TAG_LATEST-checksums.txt"
   bundle_name="opencode-helper-$TEST_TAG_LATEST.tar.gz"
   manifest_name="opencode-helper-$TEST_TAG_LATEST-manifest.json"
+  bundle_path="$download_latest/$bundle_name"
 
   case "$mode" in
     valid)
       ;;
     missing-manifest)
       rm -f "$checksums"
+      ;;
+    missing-release-manifest)
+      tmp_extract=$(mktemp -d "${TMPDIR:-/tmp}/opencode-helper-release-edit.XXXXXX")
+      tar -xzf "$bundle_path" -C "$tmp_extract"
+      rm -f "$tmp_extract/opencode-helper-$TEST_TAG_LATEST/release-manifest.json"
+      tar -czf "$bundle_path" -C "$tmp_extract" "opencode-helper-$TEST_TAG_LATEST"
+      rm -rf "$tmp_extract"
+      bundle_sha=$(sha256_file "$bundle_path")
+      manifest_sha=$(sha256_file "$download_latest/$manifest_name")
+      cat >"$checksums" <<EOF
+$bundle_sha  $bundle_name
+$manifest_sha  $manifest_name
+EOF
       ;;
     missing-entry)
       grep -F "$manifest_name" "$checksums" > "$checksums.tmp"
@@ -210,11 +241,19 @@ test_interactive_zsh_smoke() {
   rc="$home/.zshrc"
   assert_file_contains "$rc" '# opencode-helper: BEGIN managed PATH'
   assert_file_contains "$rc" "export PATH=\"$home/bin:\$PATH\""
-  [ -x "$home/bin/opencode-helper" ] || fail "expected installed helper binary"
+  [ -x "$home/bin/opencode-helper" ] || fail "expected installed helper launcher"
+  install_home="$home/.local/share/opencode-helper"
+  [ -d "$install_home/releases/$TEST_TAG_LATEST" ] || fail "expected release install directory"
+  assert_symlink_points_to "$install_home/current" "$install_home/releases/$TEST_TAG_LATEST"
 
   output=$(cat "$output_file")
   assert_text_contains "$output" "target release: $TEST_TAG_LATEST"
   assert_text_contains "$output" "verified SHA-256 for opencode-helper-$TEST_TAG_LATEST.tar.gz"
+  assert_text_contains "$output" "active release: $TEST_TAG_LATEST"
+
+  version_output=$($home/bin/opencode-helper version)
+  assert_text_contains "$version_output" "provenance	release_tag	$TEST_TAG_LATEST"
+  assert_text_contains "$version_output" "provenance	commit_sha	$TEST_COMMIT_SHA"
 
   stop_static_server
 }
@@ -233,6 +272,7 @@ test_interactive_selects_non_latest() {
   output=$(cat "$output_file")
   assert_text_contains "$output" "target release: $TEST_TAG_OLD"
   assert_text_contains "$output" "verified SHA-256 for opencode-helper-$TEST_TAG_OLD.tar.gz"
+  assert_text_contains "$output" "active release: $TEST_TAG_OLD"
 
   stop_static_server
 }
@@ -254,6 +294,7 @@ test_yes_zsh() {
   assert_text_contains "$output" "info: target release: $TEST_TAG_LATEST"
   assert_text_contains "$output" "ok: verified SHA-256 for opencode-helper-$TEST_TAG_LATEST.tar.gz"
   assert_text_contains "$output" 'ok: installed opencode-helper to '
+  assert_text_contains "$output" "ok: active release: $TEST_TAG_LATEST"
   assert_text_contains "$output" 'ok: updated PATH block in '
 
   esc=$(printf '\033')
@@ -403,6 +444,23 @@ test_checksum_mismatch_blocks_install() {
   stop_static_server
 }
 
+test_missing_release_manifest_blocks_install() {
+  root=$(prepare_release_root missing-release-manifest)
+  start_static_server "$root"
+
+  home=$(make_home)
+  output_file="$home/output.log"
+  status=0
+  run_installer_yes "$home" "/bin/zsh" "Linux" "$output_file" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE" || status=$?
+  [ "$status" -ne 0 ] || fail "expected non-zero exit for missing release manifest"
+  [ ! -e "$home/bin/opencode-helper" ] || fail "did not expect installed helper on release manifest failure"
+  [ ! -e "$home/.zshrc" ] || fail "did not expect shell config changes on release manifest failure"
+  [ ! -e "$home/.local/share/opencode-helper/current" ] || fail "did not expect activation symlink on release manifest failure"
+  assert_text_contains "$(cat "$output_file")" 'release bundle missing release-manifest.json'
+
+  stop_static_server
+}
+
 test_yes_shell_missing_no_changes() {
   home=$(make_home)
   status=0
@@ -419,6 +477,62 @@ test_yes_shell_unsupported_no_changes() {
   [ -z "$(ls -A "$home")" ] || fail "expected no filesystem changes for unsupported shell"
 }
 
+test_helper_version_works_without_release_manifest() {
+  helper="$SCRIPT_DIR/opencode-helper"
+  repo_root=$(CDPATH= cd "$SCRIPT_DIR/.." && pwd)
+  manifest="$repo_root/release-manifest.json"
+  backup=
+
+  if [ -f "$manifest" ]; then
+    backup="$manifest.test-backup.$$"
+    mv "$manifest" "$backup"
+  fi
+
+  status=0
+  output=$(sh "$helper" version 2>&1) || status=$?
+
+  if [ -n "$backup" ]; then
+    mv "$backup" "$manifest"
+  fi
+
+  [ "$status" -eq 0 ] || fail "expected helper version to succeed without release-manifest.json"
+  assert_text_contains "$output" 'helper_version'
+  assert_text_contains "$output" 'preset	opencode.openai.json	'
+  assert_text_contains "$output" 'preset	opencode.mixed.json	'
+  assert_text_contains "$output" 'schema	handoff.schema.json	'
+  assert_text_contains "$output" 'schema	result.schema.json	'
+}
+
+test_post_activation_failure_does_not_repoint_current_or_edit_rc() {
+  root=$(prepare_release_root valid)
+  start_static_server "$root"
+
+  home=$(make_home)
+  install_home="$home/.local/share/opencode-helper"
+  old_release="$install_home/releases/$TEST_TAG_OLD"
+  mkdir -p "$old_release"
+  ln -s "$old_release" "$install_home/current"
+
+  rc_file="$home/.zshrc"
+  printf '%s\n' '# opencode-helper: BEGIN managed PATH' > "$rc_file"
+  rc_before=$(cksum < "$rc_file")
+
+  output_file="$home/output.log"
+  status=0
+  HOME="$home" \
+    SHELL="/bin/zsh" \
+    OPENCODE_HELPER_RELEASE_API_BASE="$SERVER_API_BASE" \
+    OPENCODE_HELPER_RELEASE_DOWNLOAD_BASE="$SERVER_DOWNLOAD_BASE" \
+    sh "$INSTALLER" --yes --bin-dir "$home/bin" >"$output_file" 2>&1 || status=$?
+
+  [ "$status" -ne 0 ] || fail "expected non-zero exit for shell rc update failure"
+  assert_symlink_points_to "$install_home/current" "$old_release"
+  rc_after=$(cksum < "$rc_file")
+  [ "$rc_before" = "$rc_after" ] || fail "expected rc file to remain unchanged on failure"
+
+  stop_static_server
+}
+
 trap 'stop_static_server' EXIT INT TERM
 
 test_interactive_zsh_smoke
@@ -432,7 +546,10 @@ test_fish_config_creation
 test_missing_checksum_manifest_blocks_install
 test_missing_checksum_entry_blocks_install
 test_checksum_mismatch_blocks_install
+test_missing_release_manifest_blocks_install
 test_yes_shell_missing_no_changes
 test_yes_shell_unsupported_no_changes
+test_helper_version_works_without_release_manifest
+test_post_activation_failure_does_not_repoint_current_or_edit_rc
 
 printf 'PASS: scripts/test-opencode-helper-install\n'

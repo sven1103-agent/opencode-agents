@@ -1060,7 +1060,7 @@ Status:
 - Done
 
 PR:
-- TBD
+- [#33](https://github.com/sven1103-agent/opencode-agents/pull/33)
 
 Type:
 - User-facing

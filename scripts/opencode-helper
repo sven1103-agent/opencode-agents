@@ -71,6 +71,16 @@ schema_rel_path() {
   esac
 }
 
+release_manifest_path() {
+  printf '%s\n' "$REPO_ROOT/release-manifest.json"
+}
+
+release_manifest_value() {
+  manifest=$1
+  key=$2
+  awk -F '"' -v wanted="$key" '$2==wanted {print $4; found=1; exit} END {if (!found) exit 1}' "$manifest"
+}
+
 schema_install_entry() {
   root=$1
   src=$2
@@ -526,7 +536,17 @@ case "$cmd" in
     [ -f "$handoff_schema" ] || { err "missing bundled asset: $handoff_schema"; exit "$EXIT_MISSING"; }
     [ -f "$result_schema" ] || { err "missing bundled asset: $result_schema"; exit "$EXIT_MISSING"; }
 
+    release_manifest=$(release_manifest_path)
+    release_tag=unavailable
+    commit_sha=unavailable
+    if [ -f "$release_manifest" ]; then
+      release_tag=$(release_manifest_value "$release_manifest" release_tag || printf 'unavailable')
+      commit_sha=$(release_manifest_value "$release_manifest" commit_sha || printf 'unavailable')
+    fi
+
     printf 'helper_version\t%s\n' "$HELPER_VERSION"
+    printf 'provenance\trelease_tag\t%s\n' "$release_tag"
+    printf 'provenance\tcommit_sha\t%s\n' "$commit_sha"
     printf 'preset\topencode.openai.json\t%s\n' "$(cksum_file "$openai_preset")"
     printf 'preset\topencode.mixed.json\t%s\n' "$(cksum_file "$mixed_preset")"
     printf 'schema\thandoff.schema.json\t%s\n' "$(cksum_file "$handoff_schema")"
