@@ -249,7 +249,7 @@ test_interactive_zsh_smoke() {
   output=$(cat "$output_file")
   assert_text_contains "$output" "target release: $TEST_TAG_LATEST"
   assert_text_contains "$output" "verified SHA-256 for opencode-helper-$TEST_TAG_LATEST.tar.gz"
-  assert_text_contains "$output" "active release: $TEST_TAG_LATEST"
+  assert_text_contains "$output" "active installed release: $TEST_TAG_LATEST"
 
   version_output=$($home/bin/opencode-helper version)
   assert_text_contains "$version_output" "provenance	release_tag	$TEST_TAG_LATEST"
@@ -264,15 +264,15 @@ test_interactive_selects_non_latest() {
 
   home=$(make_home)
   output_file="$home/output.log"
-  printf '2\ny\n' | HOME="$home" SHELL="/bin/zsh" \
+  HOME="$home" SHELL="/bin/zsh" \
     OPENCODE_HELPER_RELEASE_API_BASE="$SERVER_API_BASE" \
     OPENCODE_HELPER_RELEASE_DOWNLOAD_BASE="$SERVER_DOWNLOAD_BASE" \
-    sh "$INSTALLER" --bin-dir "$home/bin" >"$output_file" 2>&1
+    sh "$INSTALLER" --bin-dir "$home/bin" --version "$TEST_TAG_OLD" >"$output_file" 2>&1
 
   output=$(cat "$output_file")
   assert_text_contains "$output" "target release: $TEST_TAG_OLD"
   assert_text_contains "$output" "verified SHA-256 for opencode-helper-$TEST_TAG_OLD.tar.gz"
-  assert_text_contains "$output" "active release: $TEST_TAG_OLD"
+  assert_text_contains "$output" "active installed release: $TEST_TAG_OLD"
 
   stop_static_server
 }
@@ -294,7 +294,7 @@ test_yes_zsh() {
   assert_text_contains "$output" "info: target release: $TEST_TAG_LATEST"
   assert_text_contains "$output" "ok: verified SHA-256 for opencode-helper-$TEST_TAG_LATEST.tar.gz"
   assert_text_contains "$output" 'ok: installed opencode-helper to '
-  assert_text_contains "$output" "ok: active release: $TEST_TAG_LATEST"
+  assert_text_contains "$output" "ok: active installed release: $TEST_TAG_LATEST"
   assert_text_contains "$output" 'ok: updated PATH block in '
 
   esc=$(printf '\033')
