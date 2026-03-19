@@ -600,7 +600,7 @@ Traceability workflow:
 - PR body must contain a line: `Implements: US-###`
 - The implementation PR must update the corresponding story entry in this document:
   - set `Status: Done`
-  - set `PR: <link or #number>`
+  - set `PR: [#<number>](<url>)` (preferred) or `PR: #<number>`
 - Practical: if the PR number/URL is not known yet, open the PR with `PR: TBD`, then update the same PR branch before merge to replace `TBD` with the actual PR reference.
 
 ### User Stories (Iteration 1)
@@ -614,7 +614,7 @@ Status:
 - Done
 
 PR:
-- https://github.com/sven1103-agent/opencode-agents/pull/12
+- [#12](https://github.com/sven1103-agent/opencode-agents/pull/12)
 
 Type:
 - User-facing
@@ -645,7 +645,7 @@ Status:
 - Done
 
 PR:
-- https://github.com/sven1103-agent/opencode-agents/pull/12
+- [#12](https://github.com/sven1103-agent/opencode-agents/pull/12)
 
 Type:
 - User-facing
@@ -679,7 +679,7 @@ Status:
 - Done
 
 PR:
-- https://github.com/sven1103-agent/opencode-agents/pull/12
+- [#12](https://github.com/sven1103-agent/opencode-agents/pull/12)
 
 Type:
 - User-facing
@@ -711,7 +711,7 @@ Status:
 - Done
 
 PR:
-- https://github.com/sven1103-agent/opencode-agents/pull/12
+- [#12](https://github.com/sven1103-agent/opencode-agents/pull/12)
 
 Type:
 - User-facing
@@ -742,7 +742,7 @@ Status:
 - Done
 
 PR:
-- https://github.com/sven1103-agent/opencode-agents/pull/12
+- [#12](https://github.com/sven1103-agent/opencode-agents/pull/12)
 
 Type:
 - User-facing
@@ -806,7 +806,7 @@ Status:
 - Done
 
 PR:
-- https://github.com/sven1103-agent/opencode-agents/pull/12
+- [#12](https://github.com/sven1103-agent/opencode-agents/pull/12)
 
 Type:
 - User-facing
@@ -837,7 +837,7 @@ Status:
 - Done
 
 PR:
-- https://github.com/sven1103-agent/opencode-agents/pull/12
+- [#12](https://github.com/sven1103-agent/opencode-agents/pull/12)
 
 Type:
 - User-facing
@@ -868,7 +868,7 @@ Status:
 - Done
 
 PR:
-- https://github.com/sven1103-agent/opencode-agents/pull/12
+- [#12](https://github.com/sven1103-agent/opencode-agents/pull/12)
 
 Type:
 - User-facing
@@ -899,7 +899,7 @@ Status:
 - Done
 
 PR:
-- https://github.com/sven1103-agent/opencode-agents/pull/12
+- [#12](https://github.com/sven1103-agent/opencode-agents/pull/12)
 
 Type:
 - User-facing
