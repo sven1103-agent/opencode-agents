@@ -15,6 +15,15 @@ sha256_file() {
   fi
 }
 
+file_mode() {
+  file=$1
+  if stat --version >/dev/null 2>&1; then
+    stat -c '%a' "$file"
+  else
+    stat -f '%Lp' "$file"
+  fi
+}
+
 assert_file() {
   [ -f "$1" ] || {
     printf 'missing expected file: %s\n' "$1" >&2
@@ -34,7 +43,7 @@ assert_contains_line() {
 assert_mode() {
   path=$1
   expected=$2
-  mode=$(stat -f '%Lp' "$path" 2>/dev/null || stat -c '%a' "$path")
+  mode=$(file_mode "$path")
   [ "$mode" = "$expected" ] || {
     printf 'unexpected mode for %s: got %s expected %s\n' "$path" "$mode" "$expected" >&2
     exit 1

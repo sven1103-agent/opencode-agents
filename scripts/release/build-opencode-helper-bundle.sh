@@ -17,6 +17,15 @@ sha256_file() {
   fi
 }
 
+file_mode() {
+  file=$1
+  if stat --version >/dev/null 2>&1; then
+    stat -c '%a' "$file"
+  else
+    stat -f '%Lp' "$file"
+  fi
+}
+
 TAG=
 COMMIT_SHA=
 OUTPUT_DIR=${PWD}
@@ -91,7 +100,7 @@ IFS='
 for rel in $FILES; do
   abs="$STAGE/$rel"
   size=$(wc -c < "$abs" | tr -d ' ')
-  mode=$(stat -f '%Lp' "$abs" 2>/dev/null || stat -c '%a' "$abs")
+  mode=$(file_mode "$abs")
   sha=$(sha256_file "$abs")
   printf '{"path":"%s","size":%s,"mode":"%s","sha256":"%s"}\n' "$rel" "$size" "$mode" "$sha" >> "$CONTENTS_FILE"
 done
