@@ -62,8 +62,7 @@ Current OpenCode project setup depends on repository-local assets and setup know
 ### <a id="prd-004"></a>PRD-004 - User Value
 
 The helper CLI should let a user:
-- install one official tool
-- install the helper globally and ensure it is available on `PATH`
+- run a low-friction installer wizard (`opencode-helper-install`) to install `opencode-helper` globally and ensure it is available on `PATH`
 - inspect all available presets with a short description of each preset's purpose
 - apply a supported local configuration
 - install required schemas
@@ -73,8 +72,8 @@ The helper CLI should let a user:
 ### <a id="prd-005"></a>PRD-005 - Success Criteria
 
 V1 is successful when:
-- A user can install the CLI without cloning this repository
-- A user can complete a global install such that `opencode-helper` works in a new terminal session
+- A user can install `opencode-helper` without cloning this repository (via the `opencode-helper-install` wizard)
+- A user can complete a global install such that `opencode-helper` works in a new terminal session (with `PATH` updated by the installer)
 - A user can initialize a project from bundled presets and schemas
 - A user can list all bundled presets and understand each preset's purpose before selecting one
 - A user can validate whether the project setup is healthy or drifted
@@ -206,7 +205,7 @@ Depends on:
 
 #### <a id="req-f-012"></a>REQ-F-012 - Interactive Install Wizard
 
-The CLI shall provide an interactive install wizard that installs `opencode-helper` globally on macOS and Linux.
+The installer wizard (`opencode-helper-install`) shall provide an interactive install flow that installs `opencode-helper` globally on macOS and Linux.
 
 The wizard shall:
 - prompt for an install location and suggest safe OS-sensitive defaults
@@ -223,7 +222,7 @@ Depends on:
 
 #### <a id="req-f-013"></a>REQ-F-013 - Non-Interactive Install Flags
 
-The CLI shall support non-interactive install flags suitable for CI/power users, including at least:
+The installer wizard (`opencode-helper-install`) shall support non-interactive install flags suitable for CI/power users, including at least:
 - `--yes`
 - `--bin-dir <path>`
 
@@ -237,7 +236,7 @@ Depends on:
 
 #### <a id="req-f-014"></a>REQ-F-014 - Idempotent Shell Config Edits and Privilege Boundaries
 
-The CLI shall make idempotent shell config edits using stable markers and shall avoid duplicate `PATH` entries.
+The installer wizard (`opencode-helper-install`) shall make idempotent shell config edits using stable markers and shall avoid duplicate `PATH` entries.
 
 Shell config edits shall be managed via a single marker block with these exact sentinel lines:
 - `# opencode-helper: BEGIN managed PATH`
@@ -403,10 +402,10 @@ Satisfies:
 ### <a id="feat-009"></a>FEAT-009 - Install Wizard
 
 Description:
-- Install `opencode-helper` globally with an interactive wizard that chooses an install location and updates `PATH` by editing the correct shell config
+- Install `opencode-helper` globally with a curl-started interactive wizard that chooses an install location and updates `PATH` by editing the correct shell config
 
 Likely command shape:
-- `opencode-helper install`
+- `opencode-helper-install`
 
 Satisfies:
 - [REQ-F-012](#req-f-012)
@@ -760,10 +759,10 @@ Related requirements:
 - [REQ-F-014](#req-f-014)
 
 Story:
-- As a developer, I want an interactive install wizard that installs `opencode-helper` globally and updates my shell config so that I can run `opencode-helper` from a new terminal without manual PATH steps.
+- As a developer, I want an interactive install wizard (`opencode-helper-install`) that installs `opencode-helper` globally and updates my shell config so that I can run `opencode-helper` from a new terminal without manual PATH steps.
 
 Acceptance criteria:
-- Given `opencode-helper install` installs into an unprivileged `--bin-dir` (e.g. `~/.local/bin`), when the wizard completes, then opening a new terminal session allows running `opencode-helper` successfully without manual `PATH` steps.
+- Given `opencode-helper-install` installs into an unprivileged `--bin-dir` (e.g. `~/.local/bin`), when the wizard completes, then opening a new terminal session allows running `opencode-helper` successfully without manual `PATH` steps.
 - Given the user selects a privileged `--bin-dir` (e.g. `/usr/local/bin`), when the install step writes the binary, then the flow requests `sudo`; and when the flow edits shell config, then it does not use `sudo`.
 - Given the wizard has been run once, when it is re-run with the same `--bin-dir`, then the shell config contains exactly one managed marker block and the resulting `PATH` update includes the `--bin-dir` exactly once.
 - The shell config file modified contains the exact sentinel lines `# opencode-helper: BEGIN managed PATH` and `# opencode-helper: END managed PATH`.
@@ -786,15 +785,15 @@ Related requirements:
 - [REQ-F-013](#req-f-013)
 
 Story:
-- As a developer, I want the install wizard to detect my shell and update the correct shell config so that my PATH is updated reliably on macOS and Linux.
+- As a developer, I want the install wizard (`opencode-helper-install`) to detect my shell and update the correct shell config so that my PATH is updated reliably on macOS and Linux.
 
 Acceptance criteria:
 - Given the active shell is zsh, when the wizard updates `PATH`, then it writes to `~/.zshrc`.
 - Given the active shell is bash on macOS, when the wizard updates `PATH`, then it writes to the first match in order: `~/.bash_profile` (if exists), else `~/.bashrc` (if exists), else creates and writes `~/.bash_profile`.
 - Given the active shell is bash on Linux, when the wizard updates `PATH`, then it writes to the first match in order: `~/.bashrc` (if exists), else `~/.bash_profile` (if exists), else creates and writes `~/.bashrc`.
 - Given the active shell is fish, when the wizard updates `PATH`, then it writes to `~/.config/fish/config.fish`.
-- Given `SHELL` is set to a supported shell, when running `opencode-helper install --yes --bin-dir <path>`, then the install completes without prompts and updates the shell config derived from `SHELL`.
-- Given `SHELL` is unset (or unsupported), when running `opencode-helper install --yes --bin-dir <path>`, then the command exits non-zero without making changes.
+- Given `SHELL` is set to a supported shell, when running `opencode-helper-install --yes --bin-dir <path>`, then the install completes without prompts and updates the shell config derived from `SHELL`.
+- Given `SHELL` is unset (or unsupported), when running `opencode-helper-install --yes --bin-dir <path>`, then the command exits non-zero without making changes.
 
 Template:
 
