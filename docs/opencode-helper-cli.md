@@ -572,8 +572,27 @@ Satisfies:
 | [REQ-NF-007](#req-nf-007) | Non-Functional Requirement | [FEAT-009](#feat-009) |
 | [REQ-NF-008](#req-nf-008) | Non-Functional Requirement | [FEAT-010](#feat-010), [US-016](#us-016) |
 | [REQ-NF-009](#req-nf-009) | Non-Functional Requirement | [FEAT-010](#feat-010), [US-019](#us-019) |
-| [FEAT-009](#feat-009) | Feature | [REQ-F-012](#req-f-012), [REQ-F-013](#req-f-013), [REQ-F-014](#req-f-014), [REQ-F-015](#req-f-015), [REQ-F-016](#req-f-016), [REQ-F-017](#req-f-017), [REQ-F-018](#req-f-018), [REQ-F-019](#req-f-019), [US-012](#us-012), [US-013](#us-013), [US-017](#us-017), [US-018](#us-018), [US-019](#us-019), [US-020](#us-020) |
+| [FEAT-001](#feat-001) | Feature | [REQ-F-001](#req-f-001), [REQ-F-001a](#req-f-001a), [REQ-F-002](#req-f-002), [REQ-F-003](#req-f-003), [REQ-F-004](#req-f-004), [REQ-F-005](#req-f-005), [REQ-F-010](#req-f-010), [REQ-F-011](#req-f-011), [US-002](#us-002), [US-008](#us-008), [US-009](#us-009), [US-010](#us-010) |
+| [FEAT-002](#feat-002) | Feature | [REQ-F-001](#req-f-001), [REQ-F-001a](#req-f-001a), [REQ-F-003](#req-f-003), [REQ-F-009](#req-f-009), [US-001](#us-001), [US-010](#us-010) |
+| [FEAT-003](#feat-003) | Feature | [REQ-F-004](#req-f-004), [REQ-F-010](#req-f-010), [REQ-F-011](#req-f-011), [US-003](#us-003), [US-008](#us-008), [US-009](#us-009), [US-010](#us-010) |
+| [FEAT-004](#feat-004) | Feature | [REQ-F-002](#req-f-002), [REQ-F-005](#req-f-005), [REQ-F-010](#req-f-010), [US-004](#us-004), [US-008](#us-008), [US-010](#us-010) |
+| [FEAT-005](#feat-005) | Feature | [REQ-F-006](#req-f-006), [REQ-F-009](#req-f-009), [REQ-NF-004](#req-nf-004), [REQ-NF-006](#req-nf-006), [US-005](#us-005), [US-010](#us-010) |
+| [FEAT-006](#feat-006) | Feature | [REQ-F-007](#req-f-007), [REQ-NF-004](#req-nf-004), [US-006](#us-006) |
+| [FEAT-007](#feat-007) | Feature | [REQ-F-009](#req-f-009), [REQ-NF-006](#req-nf-006), [US-007](#us-007), [US-011](#us-011) |
+| [FEAT-008](#feat-008) | Feature | [REQ-F-008](#req-f-008), [REQ-F-009](#req-f-009), [REQ-NF-003](#req-nf-003) |
+| [FEAT-009](#feat-009) | Feature | [REQ-F-012](#req-f-012), [REQ-F-013](#req-f-013), [REQ-F-014](#req-f-014), [REQ-F-015](#req-f-015), [REQ-F-016](#req-f-016), [REQ-F-017](#req-f-017), [REQ-F-018](#req-f-018), [REQ-F-019](#req-f-019), [US-012](#us-012), [US-013](#us-013), [US-014](#us-014), [US-015](#us-015), [US-017](#us-017), [US-018](#us-018), [US-019](#us-019), [US-020](#us-020) |
 | [FEAT-010](#feat-010) | Feature | [REQ-F-015](#req-f-015), [REQ-F-016](#req-f-016), [REQ-F-018](#req-f-018), [REQ-NF-008](#req-nf-008), [REQ-NF-009](#req-nf-009), [US-016](#us-016), [US-019](#us-019) |
+| [US-001](#us-001) | User Story | [FEAT-002](#feat-002), [REQ-F-003](#req-f-003), [REQ-F-001a](#req-f-001a), [REQ-F-009](#req-f-009) |
+| [US-002](#us-002) | User Story | [FEAT-001](#feat-001), [REQ-F-004](#req-f-004), [REQ-F-005](#req-f-005), [REQ-F-010](#req-f-010), [REQ-F-011](#req-f-011), [REQ-NF-002](#req-nf-002) |
+| [US-003](#us-003) | User Story | [FEAT-003](#feat-003), [REQ-F-004](#req-f-004), [REQ-F-010](#req-f-010), [REQ-F-011](#req-f-011) |
+| [US-004](#us-004) | User Story | [FEAT-004](#feat-004), [REQ-F-005](#req-f-005), [REQ-F-010](#req-f-010), [REQ-NF-002](#req-nf-002) |
+| [US-005](#us-005) | User Story | [FEAT-005](#feat-005), [REQ-F-006](#req-f-006), [REQ-F-007](#req-f-007), [REQ-NF-004](#req-nf-004), [REQ-NF-006](#req-nf-006) |
+| [US-006](#us-006) | User Story | [FEAT-006](#feat-006), [REQ-F-007](#req-f-007), [REQ-NF-004](#req-nf-004) |
+| [US-007](#us-007) | User Story | [FEAT-007](#feat-007), [REQ-F-009](#req-f-009), [REQ-NF-006](#req-nf-006), [REQ-NF-003](#req-nf-003) |
+| [US-008](#us-008) | User Story | [FEAT-001](#feat-001), [FEAT-003](#feat-003), [FEAT-004](#feat-004), [REQ-F-010](#req-f-010) |
+| [US-009](#us-009) | User Story | [FEAT-001](#feat-001), [FEAT-003](#feat-003), [REQ-F-004](#req-f-004) |
+| [US-010](#us-010) | User Story | [FEAT-001](#feat-001), [FEAT-002](#feat-002), [FEAT-003](#feat-003), [FEAT-004](#feat-004), [FEAT-005](#feat-005), [FEAT-007](#feat-007), [REQ-NF-002](#req-nf-002), [DEC-001](#dec-001) |
+| [US-011](#us-011) | User Story | [FEAT-007](#feat-007), [REQ-NF-003](#req-nf-003), [REQ-F-001](#req-f-001), [REQ-F-002](#req-f-002) |
 | [US-012](#us-012) | User Story | [FEAT-009](#feat-009), [REQ-F-012](#req-f-012), [REQ-F-014](#req-f-014) |
 | [US-013](#us-013) | User Story | [FEAT-009](#feat-009), [REQ-F-012](#req-f-012), [REQ-F-013](#req-f-013) |
 | [US-014](#us-014) | User Story | [FEAT-009](#feat-009), [REQ-NF-007](#req-nf-007) |
@@ -618,7 +637,10 @@ Traceability workflow:
 
 ### User Stories (Iteration 1)
 
-### US-001 - List available bundled presets with descriptions
+Note:
+- `US-001` through `US-011` were completed before the current one-primary-story-per-PR traceability rule was adopted, so several of those stories share legacy implementation PR references.
+
+### <a id="us-001"></a>US-001 - List available bundled presets with descriptions
 
 Priority:
 - P0
@@ -649,7 +671,7 @@ Acceptance criteria:
 
 ---
 
-### US-002 - Initialize a project from bundled assets (preset + schemas + manifest)
+### <a id="us-002"></a>US-002 - Initialize a project from bundled assets (preset + schemas + manifest)
 
 Priority:
 - P0
@@ -683,7 +705,7 @@ Acceptance criteria:
 
 ---
 
-### US-003 - Apply a selected preset to a chosen output path
+### <a id="us-003"></a>US-003 - Apply a selected preset to a chosen output path
 
 Priority:
 - P0
@@ -715,7 +737,7 @@ Acceptance criteria:
 
 ---
 
-### US-004 - Install bundled schemas into project-local scope
+### <a id="us-004"></a>US-004 - Install bundled schemas into project-local scope
 
 Priority:
 - P0
@@ -746,7 +768,7 @@ Acceptance criteria:
 
 ---
 
-### US-005 - Validate setup health (missing vs drift) with stable exit codes
+### <a id="us-005"></a>US-005 - Validate setup health (missing vs drift) with stable exit codes
 
 Priority:
 - P0
@@ -779,7 +801,7 @@ Acceptance criteria:
 
 ---
 
-### US-006 - Provide diagnostics-oriented guidance for invalid or drifted states
+### <a id="us-006"></a>US-006 - Provide diagnostics-oriented guidance for invalid or drifted states
 
 Priority:
 - P1
@@ -810,7 +832,7 @@ Acceptance criteria:
 
 ---
 
-### US-007 - Report CLI version and bundled asset identity/provenance
+### <a id="us-007"></a>US-007 - Report CLI version and bundled asset identity/provenance
 
 Priority:
 - P0
@@ -841,7 +863,7 @@ Acceptance criteria:
 
 ---
 
-### US-008 - Default-safe file handling with explicit overwrite opt-in
+### <a id="us-008"></a>US-008 - Default-safe file handling with explicit overwrite opt-in
 
 Priority:
 - P0
@@ -872,7 +894,7 @@ Acceptance criteria:
 
 ---
 
-### US-009 - Support `--project-root` and `--output` for non-default layouts
+### <a id="us-009"></a>US-009 - Support `--project-root` and `--output` for non-default layouts
 
 Priority:
 - P0
@@ -903,7 +925,7 @@ Acceptance criteria:
 
 ---
 
-### US-010 - Offline-friendly operation after installation
+### <a id="us-010"></a>US-010 - Offline-friendly operation after installation
 
 Priority:
 - P1
@@ -937,7 +959,7 @@ Acceptance criteria:
 
 ---
 
-### US-011 - Deterministic bundled asset set per release
+### <a id="us-011"></a>US-011 - Deterministic bundled asset set per release
 
 Priority:
 - P1
@@ -946,7 +968,7 @@ Status:
 - Done
 
 PR:
-- https://github.com/sven1103-agent/opencode-agents/pull/32
+- [#12](https://github.com/sven1103-agent/opencode-agents/pull/12)
 
 Type:
 - Maintainer-facing
@@ -977,7 +999,7 @@ Status:
 - Done
 
 PR:
-- https://github.com/sven1103-agent/opencode-agents/pull/15
+- [#15](https://github.com/sven1103-agent/opencode-agents/pull/15)
 
 Type:
 - User-facing
@@ -1009,7 +1031,7 @@ Status:
 - Done
 
 PR:
-- https://github.com/sven1103-agent/opencode-agents/pull/19
+- [#19](https://github.com/sven1103-agent/opencode-agents/pull/19)
 
 Type:
 - User-facing
@@ -1043,7 +1065,7 @@ Status:
 - Done
 
 PR:
-- https://github.com/sven1103-agent/opencode-agents/pull/22
+- [#22](https://github.com/sven1103-agent/opencode-agents/pull/22)
 
 Type:
 - User-facing
@@ -1102,7 +1124,7 @@ Status:
 - Done
 
 PR:
-- #24
+- [#24](https://github.com/sven1103-agent/opencode-agents/pull/24)
 
 Type:
 - Release-engineering-facing
