@@ -32,6 +32,24 @@ assert_file_not_contains() {
   fi
 }
 
+assert_text_contains() {
+  text=$1
+  expected=$2
+  case "$text" in
+    *"$expected"*) ;;
+    *) fail "expected '$expected' in text output" ;;
+  esac
+}
+
+assert_text_not_contains() {
+  text=$1
+  expected=$2
+  case "$text" in
+    *"$expected"*) fail "did not expect '$expected' in text output" ;;
+    *) ;;
+  esac
+}
+
 make_home() {
   mktemp -d "${TMPDIR:-/tmp}/opencode-helper-install-test.XXXXXX"
 }
@@ -65,9 +83,21 @@ test_interactive_zsh_smoke() {
 
 test_yes_zsh() {
   home=$(make_home)
-  run_installer_yes "$home" "/bin/zsh" "Linux"
+  output_file="$home/output.log"
+  fakebin="$home/fakebin"
+  make_fake_uname "$fakebin"
+  PATH="$fakebin:$PATH" HOME="$home" SHELL="/bin/zsh" TEST_UNAME="Linux" sh "$INSTALLER" --yes --bin-dir "$home/bin" >"$output_file" 2>&1
   rc="$home/.zshrc"
   assert_file_contains "$rc" '# opencode-helper: BEGIN managed PATH'
+
+  output=$(cat "$output_file")
+  assert_text_contains "$output" 'info: install bin dir:'
+  assert_text_contains "$output" 'info: shell config file:'
+  assert_text_contains "$output" 'ok: installed opencode-helper to '
+  assert_text_contains "$output" 'ok: updated PATH block in '
+
+  esc=$(printf '\033')
+  assert_text_not_contains "$output" "$esc"
 }
 
 test_bash_darwin_precedence() {

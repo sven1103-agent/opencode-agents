@@ -13,8 +13,39 @@ log() {
   printf '%s\n' "$*"
 }
 
+INFO_PREFIX='info:'
+OK_PREFIX='ok:'
+WARN_PREFIX='warn:'
+ERROR_PREFIX='error:'
+
+init_status_theme() {
+  esc=$(printf '\033')
+
+  if [ -t 1 ]; then
+    INFO_PREFIX="${esc}[36minfo:${esc}[0m"
+    OK_PREFIX="${esc}[32mok:${esc}[0m"
+    WARN_PREFIX="${esc}[33mwarn:${esc}[0m"
+  fi
+
+  if [ -t 2 ]; then
+    ERROR_PREFIX="${esc}[31merror:${esc}[0m"
+  fi
+}
+
+say_info() {
+  printf '%s %s\n' "$INFO_PREFIX" "$*"
+}
+
+say_ok() {
+  printf '%s %s\n' "$OK_PREFIX" "$*"
+}
+
+say_warn() {
+  printf '%s %s\n' "$WARN_PREFIX" "$*"
+}
+
 err() {
-  printf 'error: %s\n' "$*" >&2
+  printf '%s %s\n' "$ERROR_PREFIX" "$*" >&2
 }
 
 usage() {
@@ -244,7 +275,7 @@ copy_helper_binary() {
   fi
 
   if is_privileged_dir "$bindir"; then
-    log "info: privileged install location detected; requesting sudo for binary write"
+    say_info "privileged install location detected; requesting sudo for binary write"
     sudo cp "$src" "$dest"
     sudo chmod +x "$dest"
   else
@@ -268,6 +299,8 @@ confirm_or_exit() {
 
 SCRIPT_DIR=$(CDPATH= cd "$(dirname "$0")" && pwd)
 SOURCE_HELPER="$SCRIPT_DIR/opencode-helper"
+
+init_status_theme
 
 ASSUME_YES=0
 BIN_DIR="$HOME/.local/bin"
@@ -304,13 +337,13 @@ fi
 SHELL_NAME=$(detect_shell_name) || exit 1
 RC_FILE=$(select_rc_file "$SHELL_NAME") || exit 1
 
-log "info: install bin dir: $BIN_DIR"
-log "info: shell config file: $RC_FILE"
+say_info "install bin dir: $BIN_DIR"
+say_info "shell config file: $RC_FILE"
 
 confirm_or_exit "Proceed with installation?" || exit 1
 
 copy_helper_binary "$SOURCE_HELPER" "$BIN_DIR" || exit 1
 update_rc_file "$RC_FILE" "$BIN_DIR" "$SHELL_NAME" || exit 1
 
-log "ok: installed opencode-helper to $BIN_DIR/opencode-helper"
-log "ok: updated PATH block in $RC_FILE"
+say_ok "installed opencode-helper to $BIN_DIR/opencode-helper"
+say_ok "updated PATH block in $RC_FILE"
