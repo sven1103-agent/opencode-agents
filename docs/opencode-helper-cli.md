@@ -386,6 +386,290 @@ User stories will be added later and must:
 - include acceptance criteria
 - identify whether the story is user-facing, maintainer-facing, or release-engineering-facing
 
+### User Stories (Iteration 1)
+
+### US-001 - List available bundled presets with descriptions
+
+Priority:
+- P0
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-002](#feat-002)
+
+Related requirements:
+- [REQ-F-003](#req-f-003)
+- [REQ-F-001a](#req-f-001a)
+- [REQ-F-009](#req-f-009)
+
+Story:
+- As a developer, I want to list all available official presets with a short purpose description so that I can pick an appropriate starting configuration.
+
+Acceptance criteria:
+- `opencode-helper preset list` prints each preset + description.
+- Unknown flags exit nonzero.
+
+---
+
+### US-002 - Initialize a project from bundled assets (preset + schemas + manifest)
+
+Priority:
+- P0
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-001](#feat-001)
+
+Related requirements:
+- [REQ-F-004](#req-f-004)
+- [REQ-F-005](#req-f-005)
+- [REQ-F-010](#req-f-010)
+- [REQ-F-011](#req-f-011)
+- [REQ-NF-002](#req-nf-002)
+
+Story:
+- As a developer, I want to initialize a project using an official preset and bundled schemas so that my repo has a working, validated OpenCode setup without cloning a source repo.
+
+Acceptance criteria:
+- `init --project-root <dir> --preset <name>` writes output and installs schemas.
+- `--dry-run` makes no changes.
+- Overwrite is blocked without `--force`.
+
+---
+
+### US-003 - Apply a selected preset to a chosen output path
+
+Priority:
+- P0
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-003](#feat-003)
+
+Related requirements:
+- [REQ-F-004](#req-f-004)
+- [REQ-F-010](#req-f-010)
+- [REQ-F-011](#req-f-011)
+
+Story:
+- As a developer, I want to apply a specific preset to a chosen output path so that I can adopt official configuration in an existing repo.
+
+Acceptance criteria:
+- `preset use <name> --output <path>` writes the preset.
+- Overwrite is blocked without `--force`.
+- `--dry-run` makes no changes.
+
+---
+
+### US-004 - Install bundled schemas into project-local scope
+
+Priority:
+- P0
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-004](#feat-004)
+
+Related requirements:
+- [REQ-F-005](#req-f-005)
+- [REQ-F-010](#req-f-010)
+- [REQ-NF-002](#req-nf-002)
+
+Story:
+- As a developer, I want to install the official handoff/result schemas into my project so that orchestration artifacts can be validated locally.
+
+Acceptance criteria:
+- `schema install --project-root <dir>` installs schemas locally.
+- `--dry-run` makes no changes.
+
+---
+
+### US-005 - Validate setup health (missing vs drift) with stable exit codes
+
+Priority:
+- P0
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-005](#feat-005)
+
+Related requirements:
+- [REQ-F-006](#req-f-006)
+- [REQ-F-007](#req-f-007)
+- [REQ-NF-004](#req-nf-004)
+- [REQ-NF-006](#req-nf-006)
+
+Story:
+- As a developer (or CI), I want to validate that required setup files exist and match the bundled release expectations so that I can detect missing installs and drift reliably.
+
+Acceptance criteria:
+- Healthy setup exits 0.
+- Missing setup exits a stable missing exit code and lists missing items.
+- Drifted setup exits a stable drift exit code and prints diagnostics.
+
+---
+
+### US-006 - Provide diagnostics-oriented guidance for invalid or drifted states
+
+Priority:
+- P1
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-006](#feat-006)
+
+Related requirements:
+- [REQ-F-007](#req-f-007)
+- [REQ-NF-004](#req-nf-004)
+
+Story:
+- As a developer, I want actionable diagnostics for missing files, drift, or invalid setup so that I can quickly remediate mistakes.
+
+Acceptance criteria:
+- Missing output suggests a fix.
+- Drift output suggests remediation.
+- Exit codes remain correct.
+
+---
+
+### US-007 - Report CLI version and bundled asset identity/provenance
+
+Priority:
+- P0
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-007](#feat-007)
+
+Related requirements:
+- [REQ-F-009](#req-f-009)
+- [REQ-NF-006](#req-nf-006)
+- [REQ-NF-003](#req-nf-003)
+
+Story:
+- As a developer, I want the CLI to report its version and the identity of its bundled presets/schemas so that I can trace installed assets back to a specific release.
+
+Acceptance criteria:
+- `version` prints the CLI version and identifiers for bundled presets and schemas.
+- Missing bundled asset yields a missing exit code and a message.
+
+---
+
+### US-008 - Default-safe file handling with explicit overwrite opt-in
+
+Priority:
+- P0
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-001](#feat-001)
+- [FEAT-003](#feat-003)
+- [FEAT-004](#feat-004)
+
+Related requirements:
+- [REQ-F-010](#req-f-010)
+
+Story:
+- As a developer, I want the CLI to avoid overwriting existing files by default so that I can run it safely in repos that already have configuration.
+
+Acceptance criteria:
+- Without `--force`, no overwrite occurs and the command returns an overwrite-blocked exit code.
+- With `--force`, overwrite occurs and the command exits 0.
+
+---
+
+### US-009 - Support `--project-root` and `--output` for non-default layouts
+
+Priority:
+- P0
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-001](#feat-001)
+- [FEAT-003](#feat-003)
+
+Related requirements:
+- [REQ-F-004](#req-f-004)
+
+Story:
+- As a developer, I want to target a specific project root and config output path so that the helper works in monorepos and non-standard directory structures.
+
+Acceptance criteria:
+- Writes occur under the provided `--project-root`.
+- Output respects `--output`.
+- Invalid output errors with a usage/runtime exit code.
+
+---
+
+### US-010 - Offline-friendly operation after installation
+
+Priority:
+- P1
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-001](#feat-001)
+- [FEAT-002](#feat-002)
+- [FEAT-003](#feat-003)
+- [FEAT-004](#feat-004)
+- [FEAT-005](#feat-005)
+- [FEAT-007](#feat-007)
+
+Related requirements:
+- [REQ-NF-002](#req-nf-002)
+- [DEC-001](#dec-001)
+
+Story:
+- As a developer, I want normal setup operations to work without network access so that I can bootstrap and validate projects in restricted environments.
+
+Acceptance criteria:
+- `preset list`, `init`, `preset use`, `schema install`, `validate`, and `version` complete offline.
+
+---
+
+### US-011 - Deterministic bundled asset set per release
+
+Priority:
+- P1
+
+Type:
+- Maintainer-facing
+
+Related features:
+- [FEAT-007](#feat-007)
+
+Related requirements:
+- [REQ-NF-003](#req-nf-003)
+- [REQ-F-001](#req-f-001)
+- [REQ-F-002](#req-f-002)
+
+Story:
+- As a maintainer, I want each CLI release to pin a specific set of presets and schemas so that setup and validation results are reproducible.
+
+Acceptance criteria:
+- `version` provenance is stable per release.
+- The same release yields identical `preset list` output.
+
 Template:
 
 ### US-001 - Title

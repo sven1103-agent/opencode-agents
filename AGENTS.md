@@ -7,7 +7,7 @@ This repository contains OpenCode agent configuration assets and supporting setu
 Primary repo contents:
 - `opencode.openai.json` and `opencode.mixed.json` are the main OpenCode config presets
 - `.opencode/schemas/` contains the vendored inter-agent handoff and result schemas used by this repo's workflow
-- `scripts/opencode-config` is the current shell helper for installing and validating vendored schemas
+- `scripts/opencode-helper` is the iteration-1 helper CLI for bootstrapping `opencode.json` + installing/validating local schemas
 - `docs/opencode-helper-cli.md` is the traceable product document for the planned helper CLI
 - `README.md` explains the multi-agent configuration approach and how the repo is intended to be used
 
@@ -22,5 +22,5 @@ Primary repo contents:
 ## Quick Orientation
 
 - If the task is about agent behavior or configuration presets, inspect `README.md`, `opencode.openai.json`, and `opencode.mixed.json`
-- If the task is about local schema installation or validation, inspect `scripts/opencode-config`
+- If the task is about local schema installation or validation, inspect `scripts/opencode-helper`
 - If the task is about future helper CLI behavior, update `docs/opencode-helper-cli.md` first so product decisions remain traceable

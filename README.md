@@ -697,6 +697,43 @@ This means any task submitted without an explicit agent selection routes through
 - `coding-boss` — for all code changes, bug fixes, refactors, and implementations
 - `docs` — for all documentation tasks
 
+### Iteration-1 helper CLI
+
+This repository also includes an iteration-1 helper script at `scripts/opencode-helper` for bootstrapping a local `opencode.json` and local schema install.
+
+```bash
+# Show helper commands
+sh scripts/opencode-helper help
+
+# List bundled presets
+sh scripts/opencode-helper preset list
+
+# Initialize a project with the OpenAI preset
+sh scripts/opencode-helper init --preset openai --project-root "$PWD"
+
+# Validate helper-managed setup state
+sh scripts/opencode-helper validate --project-root "$PWD"
+
+# Equivalent output path spellings resolve to the same target
+sh scripts/opencode-helper validate --project-root "$PWD" --output ./opencode.json
+
+# Show helper version and bundled asset provenance
+sh scripts/opencode-helper version
+```
+
+Generated project-local layout:
+
+```text
+<project-root>/
+  opencode.json
+  .opencode/
+    opencode-helper-manifest.tsv
+    install-manifest.tsv
+    schemas/
+      handoff.schema.json
+      result.schema.json
+```
+
 ### Calling Agents
 
 ```bash

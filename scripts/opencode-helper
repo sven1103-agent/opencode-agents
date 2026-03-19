@@ -1,0 +1,621 @@
+#!/bin/sh
+
+set -u
+
+EXIT_OK=0
+EXIT_ERR=1
+EXIT_MISSING=2
+EXIT_DRIFT=3
+EXIT_CONFLICT=4
+
+HELPER_VERSION="0.1.0"
+
+SCRIPT_DIR=$(CDPATH= cd "$(dirname "$0")" && pwd)
+REPO_ROOT=$(CDPATH= cd "$SCRIPT_DIR/.." && pwd)
+VENDORED_SCHEMA_DIR="$REPO_ROOT/.opencode/schemas"
+
+command_name() {
+  basename "$0"
+}
+
+log() { printf '%s\n' "$*" >&2; }
+err() { printf 'error: %s\n' "$*" >&2; }
+
+is_absolute_path() {
+  case "$1" in
+    /*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+canonicalize_path() {
+  input_path=$1
+  dir_part=$(dirname "$input_path")
+  base_part=$(basename "$input_path")
+
+  resolved_dir=$(CDPATH= cd "$dir_part" 2>/dev/null && pwd -P) || return 1
+  printf '%s/%s\n' "$resolved_dir" "$base_part"
+}
+
+resolve_output_path() {
+  project_root=$1
+  output=$2
+  raw_path=
+
+  if is_absolute_path "$output"; then
+    raw_path=$output
+  else
+    raw_path=$project_root/$output
+  fi
+
+  canonicalize_path "$raw_path"
+}
+
+cksum_file() {
+  cksum < "$1" | awk '{print $1 ":" $2}'
+}
+
+schema_source_file() {
+  case "$1" in
+    handoff) printf '%s\n' "$VENDORED_SCHEMA_DIR/handoff.schema.json" ;;
+    result) printf '%s\n' "$VENDORED_SCHEMA_DIR/result.schema.json" ;;
+    *) return 1 ;;
+  esac
+}
+
+schema_rel_path() {
+  case "$1" in
+    handoff) printf '%s\n' "schemas/handoff.schema.json" ;;
+    result) printf '%s\n' "schemas/result.schema.json" ;;
+    *) return 1 ;;
+  esac
+}
+
+schema_install_entry() {
+  root=$1
+  src=$2
+  rel=$3
+  force=$4
+  dry_run=$5
+
+  dest="$root/$rel"
+  dest_dir=$(dirname "$dest")
+  desired_meta=$(cksum_file "$src")
+
+  if [ -f "$dest" ]; then
+    current_meta=$(cksum_file "$dest")
+    if [ "$current_meta" = "$desired_meta" ]; then
+      log "ok: unchanged $dest"
+      printf 'file\t%s\t%s\n' "$rel" "$desired_meta"
+      return 0
+    fi
+    if [ "$force" -ne 1 ]; then
+      err "would overwrite $dest (use --force)"
+      return "$EXIT_CONFLICT"
+    fi
+  elif [ -e "$dest" ]; then
+    if [ "$force" -ne 1 ]; then
+      err "would overwrite $dest (use --force)"
+      return "$EXIT_CONFLICT"
+    fi
+  fi
+
+  if [ "$dry_run" -eq 1 ]; then
+    log "dry-run: install $dest"
+    printf 'file\t%s\t%s\n' "$rel" "$desired_meta"
+    return 0
+  fi
+
+  mkdir -p "$dest_dir" || return "$EXIT_ERR"
+  cp "$src" "$dest" || return "$EXIT_ERR"
+  log "installed: $dest"
+  printf 'file\t%s\t%s\n' "$rel" "$desired_meta"
+  return 0
+}
+
+schema_write_manifest() {
+  root=$1
+  manifest=$2
+  entries=$3
+  dry_run=$4
+
+  if [ "$dry_run" -eq 1 ]; then
+    log "dry-run: write manifest $manifest"
+    return 0
+  fi
+
+  mkdir -p "$root" || return "$EXIT_ERR"
+  tmp="$manifest.tmp.$$"
+  : > "$tmp" || return "$EXIT_ERR"
+  printf '%s\n' "$entries" > "$tmp" || return "$EXIT_ERR"
+  mv "$tmp" "$manifest" || return "$EXIT_ERR"
+}
+
+schema_install_local() {
+  project_root=$1
+  force=$2
+  dry_run=$3
+
+  root="$project_root/.opencode"
+  manifest="$root/install-manifest.tsv"
+
+  src_handoff=$(schema_source_file handoff) || return "$EXIT_ERR"
+  src_result=$(schema_source_file result) || return "$EXIT_ERR"
+  [ -f "$src_handoff" ] || { err "missing vendored schema: $src_handoff"; return "$EXIT_MISSING"; }
+  [ -f "$src_result" ] || { err "missing vendored schema: $src_result"; return "$EXIT_MISSING"; }
+
+  entry1=$(schema_install_entry "$root" "$src_handoff" "$(schema_rel_path handoff)" "$force" "$dry_run") || return $?
+  entry2=$(schema_install_entry "$root" "$src_result" "$(schema_rel_path result)" "$force" "$dry_run") || return $?
+
+  entries=$(printf '%s\n%s' "$entry1" "$entry2")
+  schema_write_manifest "$root" "$manifest" "$entries" "$dry_run" || return $?
+  log "done: schema install complete ($root)"
+  return "$EXIT_OK"
+}
+
+schema_inspect_root() {
+  root=$1
+  manifest="$root/install-manifest.tsv"
+
+  if [ ! -f "$manifest" ]; then
+    if [ -e "$root/$(schema_rel_path handoff)" ] || [ -e "$root/$(schema_rel_path result)" ]; then
+      err "drift: schema files present without manifest in $root"
+      return "$EXIT_DRIFT"
+    fi
+    err "missing: schemas not installed in $root"
+    return "$EXIT_MISSING"
+  fi
+
+  drift=0
+  found_handoff=0
+  found_result=0
+
+  while IFS=$(printf '\t') read -r type rel meta; do
+    [ -z "${type:-}" ] && continue
+    path="$root/$rel"
+
+    [ "$rel" = "schemas/handoff.schema.json" ] && found_handoff=1
+    [ "$rel" = "schemas/result.schema.json" ] && found_result=1
+
+    if [ "$type" != "file" ]; then
+      err "drift: unsupported manifest entry type: $type"
+      drift=1
+      continue
+    fi
+    if [ ! -f "$path" ]; then
+      err "drift: missing file $path"
+      drift=1
+      continue
+    fi
+    now=$(cksum_file "$path")
+    if [ "$now" != "$meta" ]; then
+      err "drift: file changed $path"
+      drift=1
+    fi
+  done < "$manifest"
+
+  if [ "$found_handoff" -ne 1 ] || [ "$found_result" -ne 1 ]; then
+    err "drift: manifest missing required schema entries in $root"
+    drift=1
+  fi
+
+  if [ "$drift" -eq 1 ]; then
+    return "$EXIT_DRIFT"
+  fi
+
+  log "healthy: schemas installed in $root"
+  return "$EXIT_OK"
+}
+
+preset_source_file() {
+  case "$1" in
+    openai) printf '%s\n' "$REPO_ROOT/opencode.openai.json" ;;
+    mixed) printf '%s\n' "$REPO_ROOT/opencode.mixed.json" ;;
+    *) return 1 ;;
+  esac
+}
+
+preset_source_label() {
+  case "$1" in
+    openai) printf '%s\n' "opencode.openai.json" ;;
+    mixed) printf '%s\n' "opencode.mixed.json" ;;
+    *) return 1 ;;
+  esac
+}
+
+preset_description() {
+  case "$1" in
+    openai) printf '%s\n' "OpenAI-only model preset." ;;
+    mixed) printf '%s\n' "Mixed provider preset." ;;
+    *) return 1 ;;
+  esac
+}
+
+usage() {
+  cat <<EOF
+$(command_name) - iteration-1 OpenCode project helper
+
+Usage:
+  $(command_name) <command> [options]
+
+Commands:
+  help
+  init
+  preset list
+  preset use <name>
+  schema install
+  validate
+  version
+
+Shared options (where applicable):
+  --project-root PATH   Target project root (default: current directory)
+  --preset NAME         Preset for init (openai|mixed; default: mixed)
+  --output PATH         Config output path (default: opencode.json)
+  --force               Allow overwrite of existing output file
+  --dry-run             Print planned actions without writing
+
+Exit codes:
+  0 success
+  1 usage/runtime error
+  2 required files missing
+  3 drift detected
+  4 overwrite blocked
+EOF
+}
+
+usage_init() {
+  cat <<EOF
+init - apply preset, install local schemas, write helper manifest
+
+Usage:
+  $(command_name) init [--project-root PATH] [--preset NAME] [--output PATH] [--force] [--dry-run]
+
+Defaults:
+  --project-root current directory
+  --preset mixed
+  --output opencode.json
+EOF
+}
+
+usage_preset_use() {
+  cat <<EOF
+preset use - apply selected preset to output path
+
+Usage:
+  $(command_name) preset use <name> [--project-root PATH] [--output PATH] [--force] [--dry-run]
+
+Preset names:
+  openai
+  mixed
+EOF
+}
+
+usage_schema_install() {
+  cat <<EOF
+schema install - install local schemas into project root
+
+Usage:
+  $(command_name) schema install [--project-root PATH] [--dry-run]
+EOF
+}
+
+usage_validate() {
+  cat <<EOF
+validate - verify helper manifest, config presence, drift, and schema status
+
+Usage:
+  $(command_name) validate [--project-root PATH] [--output PATH]
+EOF
+}
+
+write_manifest() {
+  manifest_path=$1
+  helper_version=$2
+  preset_name=$3
+  output_path_canonical=$4
+  source_preset=$5
+  source_checksum=$6
+  output_checksum=$7
+
+  tmp_path="$manifest_path.tmp.$$"
+  {
+    printf 'helper_version\t%s\n' "$helper_version"
+    printf 'preset_name\t%s\n' "$preset_name"
+    printf 'output_path\t%s\n' "$output_path_canonical"
+    printf 'source_preset\t%s\n' "$source_preset"
+    printf 'source_checksum\t%s\n' "$source_checksum"
+    printf 'output_checksum\t%s\n' "$output_checksum"
+  } > "$tmp_path" || return "$EXIT_ERR"
+  mv "$tmp_path" "$manifest_path" || return "$EXIT_ERR"
+  return "$EXIT_OK"
+}
+
+apply_preset() {
+  preset_name=$1
+  project_root=$2
+  output=$3
+  force=$4
+  dry_run=$5
+  write_manifest_flag=$6
+
+  src_file=$(preset_source_file "$preset_name") || {
+    err "unknown preset: $preset_name"
+    return "$EXIT_ERR"
+  }
+  [ -f "$src_file" ] || {
+    err "missing source preset: $src_file"
+    return "$EXIT_MISSING"
+  }
+
+  output_path=$(resolve_output_path "$project_root" "$output") || {
+    err "invalid output path: $output"
+    return "$EXIT_ERR"
+  }
+  output_dir=$(dirname "$output_path")
+  src_label=$(preset_source_label "$preset_name") || return "$EXIT_ERR"
+
+  if [ -e "$output_path" ] && [ "$force" -ne 1 ]; then
+    err "output exists: $output_path (use --force)"
+    return "$EXIT_CONFLICT"
+  fi
+
+  if [ "$dry_run" -eq 1 ]; then
+    log "dry-run: copy $src_label -> $output_path"
+    if [ "$write_manifest_flag" -eq 1 ]; then
+      log "dry-run: write $project_root/.opencode/opencode-helper-manifest.tsv"
+    fi
+    return "$EXIT_OK"
+  fi
+
+  mkdir -p "$output_dir" || return "$EXIT_ERR"
+  cp "$src_file" "$output_path" || return "$EXIT_ERR"
+  log "written: $output_path"
+
+  if [ "$write_manifest_flag" -eq 1 ]; then
+    mkdir -p "$project_root/.opencode" || return "$EXIT_ERR"
+    manifest_path="$project_root/.opencode/opencode-helper-manifest.tsv"
+    source_checksum=$(cksum_file "$src_file")
+    output_checksum=$(cksum_file "$output_path")
+    write_manifest "$manifest_path" "$HELPER_VERSION" "$preset_name" "$output_path" "$src_label" "$source_checksum" "$output_checksum" || return $?
+    log "written: $manifest_path"
+  fi
+
+  return "$EXIT_OK"
+}
+
+cmd_preset_list() {
+  printf 'openai\t%s\n' "$(preset_description openai)"
+  printf 'mixed\t%s\n' "$(preset_description mixed)"
+  return "$EXIT_OK"
+}
+
+cmd_schema_install() {
+  project_root=$1
+  dry_run=$2
+
+  schema_install_local "$project_root" 0 "$dry_run"
+}
+
+read_manifest_value() {
+  manifest_path=$1
+  wanted=$2
+  awk -F '\t' -v key="$wanted" '$1==key {print $2; found=1} END {if (!found) exit 1}' "$manifest_path"
+}
+
+cmd_validate() {
+  project_root=$1
+  output=$2
+
+  manifest_path="$project_root/.opencode/opencode-helper-manifest.tsv"
+  output_path=$(resolve_output_path "$project_root" "$output") || {
+    err "invalid output path: $output"
+    return "$EXIT_ERR"
+  }
+
+  [ -f "$manifest_path" ] || {
+    err "missing manifest: $manifest_path"
+    return "$EXIT_MISSING"
+  }
+
+  [ -f "$output_path" ] || {
+    err "missing config file: $output_path"
+    return "$EXIT_MISSING"
+  }
+
+  preset_name=$(read_manifest_value "$manifest_path" preset_name) || {
+    err "manifest missing preset_name"
+    return "$EXIT_DRIFT"
+  }
+  manifest_output=$(read_manifest_value "$manifest_path" output_path) || {
+    err "manifest missing output_path"
+    return "$EXIT_DRIFT"
+  }
+  source_checksum_manifest=$(read_manifest_value "$manifest_path" source_checksum) || {
+    err "manifest missing source_checksum"
+    return "$EXIT_DRIFT"
+  }
+  output_checksum_manifest=$(read_manifest_value "$manifest_path" output_checksum) || {
+    err "manifest missing output_checksum"
+    return "$EXIT_DRIFT"
+  }
+
+  if ! manifest_output_canonical=$(resolve_output_path "$project_root" "$manifest_output"); then
+    err "manifest output path invalid: $manifest_output"
+    return "$EXIT_DRIFT"
+  fi
+
+  if [ "$manifest_output_canonical" != "$output_path" ]; then
+    err "manifest output path mismatch: expected $manifest_output_canonical, got $output_path"
+    return "$EXIT_DRIFT"
+  fi
+
+  src_file=$(preset_source_file "$preset_name") || {
+    err "manifest preset invalid: $preset_name"
+    return "$EXIT_DRIFT"
+  }
+  [ -f "$src_file" ] || {
+    err "missing source preset file: $src_file"
+    return "$EXIT_MISSING"
+  }
+
+  source_checksum_now=$(cksum_file "$src_file")
+  output_checksum_now=$(cksum_file "$output_path")
+
+  if [ "$source_checksum_now" != "$source_checksum_manifest" ]; then
+    err "drift: source preset checksum mismatch"
+    return "$EXIT_DRIFT"
+  fi
+  if [ "$output_checksum_now" != "$output_checksum_manifest" ]; then
+    err "drift: output config checksum mismatch"
+    return "$EXIT_DRIFT"
+  fi
+
+  schema_inspect_root "$project_root/.opencode" || return $?
+
+  log "healthy: helper validation passed"
+  return "$EXIT_OK"
+}
+
+parse_common_flags() {
+  project_root=$PWD
+  preset_name=mixed
+  output=opencode.json
+  force=0
+  dry_run=0
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --project-root) shift; project_root=${1:-} ;;
+      --preset) shift; preset_name=${1:-} ;;
+      --output) shift; output=${1:-} ;;
+      --force) force=1 ;;
+      --dry-run) dry_run=1 ;;
+      -h|--help) return 10 ;;
+      *) err "unknown flag: $1"; return "$EXIT_ERR" ;;
+    esac
+    [ "$#" -gt 0 ] || break
+    shift
+  done
+
+  [ -n "$project_root" ] || { err "--project-root requires PATH"; return "$EXIT_ERR"; }
+  [ -n "$preset_name" ] || { err "--preset requires NAME"; return "$EXIT_ERR"; }
+  [ -n "$output" ] || { err "--output requires PATH"; return "$EXIT_ERR"; }
+  [ -d "$project_root" ] || { err "project root not found: $project_root"; return "$EXIT_MISSING"; }
+
+  return "$EXIT_OK"
+}
+
+cmd=${1:-help}
+if [ "$#" -gt 0 ]; then
+  shift
+fi
+
+case "$cmd" in
+  help|-h|--help)
+    usage
+    exit "$EXIT_OK"
+    ;;
+  version)
+    openai_preset="$REPO_ROOT/opencode.openai.json"
+    mixed_preset="$REPO_ROOT/opencode.mixed.json"
+    handoff_schema="$REPO_ROOT/.opencode/schemas/handoff.schema.json"
+    result_schema="$REPO_ROOT/.opencode/schemas/result.schema.json"
+
+    [ -f "$openai_preset" ] || { err "missing bundled asset: $openai_preset"; exit "$EXIT_MISSING"; }
+    [ -f "$mixed_preset" ] || { err "missing bundled asset: $mixed_preset"; exit "$EXIT_MISSING"; }
+    [ -f "$handoff_schema" ] || { err "missing bundled asset: $handoff_schema"; exit "$EXIT_MISSING"; }
+    [ -f "$result_schema" ] || { err "missing bundled asset: $result_schema"; exit "$EXIT_MISSING"; }
+
+    printf 'helper_version\t%s\n' "$HELPER_VERSION"
+    printf 'preset\topencode.openai.json\t%s\n' "$(cksum_file "$openai_preset")"
+    printf 'preset\topencode.mixed.json\t%s\n' "$(cksum_file "$mixed_preset")"
+    printf 'schema\thandoff.schema.json\t%s\n' "$(cksum_file "$handoff_schema")"
+    printf 'schema\tresult.schema.json\t%s\n' "$(cksum_file "$result_schema")"
+    exit "$EXIT_OK"
+    ;;
+  init)
+    parse_common_flags "$@"
+    rc=$?
+    if [ "$rc" -eq 10 ]; then
+      usage_init
+      exit "$EXIT_OK"
+    fi
+    [ "$rc" -eq 0 ] || exit "$rc"
+
+    apply_preset "$preset_name" "$project_root" "$output" "$force" "$dry_run" 1 || exit $?
+    if [ "$dry_run" -eq 1 ]; then
+      log "dry-run: schema install in $project_root/.opencode"
+      schema_install_local "$project_root" 0 1
+      exit $?
+    fi
+    cmd_schema_install "$project_root" 0 || exit $?
+    exit "$EXIT_OK"
+    ;;
+  preset)
+    sub=${1:-}
+    [ "$#" -gt 0 ] && shift
+    case "$sub" in
+      list)
+        if [ "$#" -gt 0 ]; then
+          err "preset list accepts no flags"
+          exit "$EXIT_ERR"
+        fi
+        cmd_preset_list
+        exit $?
+        ;;
+      use)
+        preset_arg=${1:-}
+        [ "$#" -gt 0 ] && shift
+        [ -n "$preset_arg" ] || { err "preset use requires a preset name"; usage_preset_use; exit "$EXIT_ERR"; }
+        parse_common_flags "$@"
+        rc=$?
+        if [ "$rc" -eq 10 ]; then
+          usage_preset_use
+          exit "$EXIT_OK"
+        fi
+        [ "$rc" -eq 0 ] || exit "$rc"
+        apply_preset "$preset_arg" "$project_root" "$output" "$force" "$dry_run" 0
+        exit $?
+        ;;
+      *)
+        err "unknown preset command: ${sub:-}"; usage; exit "$EXIT_ERR"
+        ;;
+    esac
+    ;;
+  schema)
+    sub=${1:-}
+    [ "$#" -gt 0 ] && shift
+    case "$sub" in
+      install)
+        parse_common_flags "$@"
+        rc=$?
+        if [ "$rc" -eq 10 ]; then
+          usage_schema_install
+          exit "$EXIT_OK"
+        fi
+        [ "$rc" -eq 0 ] || exit "$rc"
+        cmd_schema_install "$project_root" "$dry_run"
+        exit $?
+        ;;
+      *)
+        err "unknown schema command: ${sub:-}"; usage; exit "$EXIT_ERR"
+        ;;
+    esac
+    ;;
+  validate)
+    parse_common_flags "$@"
+    rc=$?
+    if [ "$rc" -eq 10 ]; then
+      usage_validate
+      exit "$EXIT_OK"
+    fi
+    [ "$rc" -eq 0 ] || exit "$rc"
+    cmd_validate "$project_root" "$output"
+    exit $?
+    ;;
+  *)
+    err "unknown command: $cmd"
+    usage
+    exit "$EXIT_ERR"
+    ;;
+esac
