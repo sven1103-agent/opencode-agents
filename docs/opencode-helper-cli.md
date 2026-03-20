@@ -1364,6 +1364,36 @@ Acceptance criteria:
 
 ---
 
+### <a id="us-022"></a>US-022 - Self-documenting CLI commands enable confident tool discovery
+
+Priority:
+- P1
+
+Status:
+- In progress
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-001](#feat-001) to [FEAT-007](#feat-007)
+
+Related requirements:
+- [REQ-NF-004](#req-nf-004)
+
+Story:
+- As a developer, I want the CLI to explain what each command and subcommand does directly in the help output so that I can understand the tool's capabilities without guessing or consulting external documentation.
+
+Acceptance criteria:
+- `opencode-helper help` shows each command with a brief description of its purpose.
+- `opencode-helper <command> --help` shows a description followed by usage syntax.
+- Commands without descriptions are never shipped.
+
+---
+
 ## Open Questions for Post-V1
 
 - Should the CLI support exporting presets under names other than `opencode.json`?
