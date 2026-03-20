@@ -201,8 +201,8 @@ PY
 
   SERVER_PID=$server_pid
   SERVER_PORT=$(cat "$port_file")
-  SERVER_API_BASE="http://localhost:$SERVER_PORT/api"
-  SERVER_DOWNLOAD_BASE="http://localhost:$SERVER_PORT/download"
+  SERVER_API_BASE="http://127.0.0.1:$SERVER_PORT/api"
+  SERVER_DOWNLOAD_BASE="http://127.0.0.1:$SERVER_PORT/download"
 }
 
 stop_static_server() {

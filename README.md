@@ -786,7 +786,7 @@ opencode-helper-<tag>/
   release-manifest.json
 ```
 
-The external `*-manifest.json` matches the in-bundle `release-manifest.json` bytes. `*-checksums.txt` contains SHA-256 lines for the tarball and manifest in `<sha256>  <filename>` format.
+The external `*-manifest.json` matches the in-bundle `release-manifest.json` bytes. `*-checksums.txt` contains SHA-256 lines for all published release assets (tarball, manifest, `opencode-helper-install`, and `install.sh`) in `<sha256>  <filename>` format.
 
 `scripts/opencode-helper-install` now installs from the latest published GitHub release by default. It downloads `opencode-helper-<tag>.tar.gz` together with `opencode-helper-<tag>-checksums.txt`, verifies the tarball SHA-256 before extraction, and aborts without activating the bundle if verification fails.
 

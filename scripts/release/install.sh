@@ -96,7 +96,8 @@ verify_checksum() {
 }
 
 ASSUME_YES=0
-POSITIONAL=''
+BIN_DIR=
+BIN_DIR_WAS_SET=0
 REQUESTED_VERSION=
 
 while [ "$#" -gt 0 ]; do
@@ -109,10 +110,10 @@ while [ "$#" -gt 0 ]; do
       ASSUME_YES=1
       ;;
     --bin-dir)
-      POSITIONAL="$POSITIONAL $1"
       shift
       [ "$#" -gt 0 ] || { err "--bin-dir requires an argument"; exit 1; }
-      POSITIONAL="$POSITIONAL $1"
+      BIN_DIR=$1
+      BIN_DIR_WAS_SET=1
       ;;
     --version)
       shift
@@ -168,6 +169,11 @@ printf 'ok: verified SHA-256 for opencode-helper-install\n'
 
 chmod +x "$INSTALLER_PATH"
 
+set -- "$INSTALLER_PATH" --yes --version "$TAG"
+if [ "$BIN_DIR_WAS_SET" -eq 1 ]; then
+  set -- "$@" --bin-dir "$BIN_DIR"
+fi
+
 OPENCODE_HELPER_RELEASE_API_BASE="$API_BASE" \
 OPENCODE_HELPER_RELEASE_DOWNLOAD_BASE="$DOWNLOAD_BASE" \
-exec "$INSTALLER_PATH" --yes --version "$TAG" $POSITIONAL
+exec "$@"
