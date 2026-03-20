@@ -581,7 +581,7 @@ Satisfies:
 | [REQ-F-005](#req-f-005) | Functional Requirement | [FEAT-001](#feat-001), [FEAT-004](#feat-004) |
 | [REQ-F-006](#req-f-006) | Functional Requirement | [FEAT-005](#feat-005) |
 | [REQ-F-007](#req-f-007) | Functional Requirement | [FEAT-006](#feat-006) |
-| [REQ-F-008](#req-f-008) | Functional Requirement | [FEAT-008](#feat-008) |
+| [REQ-F-008](#req-f-008) | Functional Requirement | [FEAT-008](#feat-008), [US-023](#us-023) |
 | [REQ-F-009](#req-f-009) | Functional Requirement | [FEAT-002](#feat-002), [FEAT-005](#feat-005), [FEAT-007](#feat-007), [FEAT-008](#feat-008) |
 | [REQ-F-010](#req-f-010) | Functional Requirement | [FEAT-001](#feat-001), [FEAT-003](#feat-003), [FEAT-004](#feat-004) |
 | [REQ-F-011](#req-f-011) | Functional Requirement | [FEAT-001](#feat-001), [FEAT-003](#feat-003) |
@@ -592,7 +592,7 @@ Satisfies:
 | [REQ-F-016](#req-f-016) | Functional Requirement | [FEAT-009](#feat-009), [FEAT-010](#feat-010), [US-016](#us-016), [US-017](#us-017) |
 | [REQ-F-017](#req-f-017) | Functional Requirement | [FEAT-009](#feat-009), [US-018](#us-018), [US-020](#us-020) |
 | [REQ-F-018](#req-f-018) | Functional Requirement | [FEAT-009](#feat-009), [FEAT-010](#feat-010), [US-019](#us-019) |
-| [REQ-F-019](#req-f-019) | Functional Requirement | [FEAT-009](#feat-009), [US-020](#us-020) |
+| [REQ-F-019](#req-f-019) | Functional Requirement | [FEAT-009](#feat-009), [US-020](#us-020), [US-023](#us-023) |
 | [REQ-F-020](#req-f-020) | Functional Requirement | [FEAT-009](#feat-009), [US-021](#us-021) |
 | [REQ-NF-001](#req-nf-001) | Non-Functional Requirement | [FEAT-001](#feat-001) to [FEAT-008](#feat-008) |
 | [REQ-NF-002](#req-nf-002) | Non-Functional Requirement | [FEAT-001](#feat-001) to [FEAT-007](#feat-007) |
@@ -610,7 +610,7 @@ Satisfies:
 | [FEAT-005](#feat-005) | Feature | [REQ-F-006](#req-f-006), [REQ-F-009](#req-f-009), [REQ-NF-004](#req-nf-004), [REQ-NF-006](#req-nf-006), [US-005](#us-005), [US-010](#us-010) |
 | [FEAT-006](#feat-006) | Feature | [REQ-F-007](#req-f-007), [REQ-NF-004](#req-nf-004), [US-006](#us-006) |
 | [FEAT-007](#feat-007) | Feature | [REQ-F-009](#req-f-009), [REQ-NF-006](#req-nf-006), [US-007](#us-007), [US-011](#us-011) |
-| [FEAT-008](#feat-008) | Feature | [REQ-F-008](#req-f-008), [REQ-F-009](#req-f-009), [REQ-NF-003](#req-nf-003) |
+| [FEAT-008](#feat-008) | Feature | [REQ-F-008](#req-f-008), [REQ-F-009](#req-f-009), [REQ-NF-003](#req-nf-003), [US-023](#us-023) |
 | [FEAT-009](#feat-009) | Feature | [REQ-F-012](#req-f-012), [REQ-F-013](#req-f-013), [REQ-F-014](#req-f-014), [REQ-F-015](#req-f-015), [REQ-F-016](#req-f-016), [REQ-F-017](#req-f-017), [REQ-F-018](#req-f-018), [REQ-F-019](#req-f-019), [REQ-F-020](#req-f-020), [US-012](#us-012), [US-013](#us-013), [US-014](#us-014), [US-015](#us-015), [US-017](#us-017), [US-018](#us-018), [US-019](#us-019), [US-020](#us-020), [US-021](#us-021) |
 | [FEAT-010](#feat-010) | Feature | [REQ-F-015](#req-f-015), [REQ-F-016](#req-f-016), [REQ-F-018](#req-f-018), [REQ-NF-008](#req-nf-008), [REQ-NF-009](#req-nf-009), [US-016](#us-016), [US-019](#us-019) |
 | [US-001](#us-001) | User Story | [FEAT-002](#feat-002), [REQ-F-003](#req-f-003), [REQ-F-001a](#req-f-001a), [REQ-F-009](#req-f-009) |
@@ -634,6 +634,9 @@ Satisfies:
 | [US-019](#us-019) | User Story | [FEAT-009](#feat-009), [FEAT-010](#feat-010), [REQ-F-018](#req-f-018), [REQ-NF-009](#req-nf-009) |
 | [US-020](#us-020) | User Story | [FEAT-009](#feat-009), [REQ-F-017](#req-f-017), [REQ-F-019](#req-f-019) |
 | [US-021](#us-021) | User Story | [FEAT-009](#feat-009), [REQ-F-020](#req-f-020) |
+| [US-023](#us-023) | User Story | [FEAT-008](#feat-008), [REQ-F-008](#req-f-008), [REQ-F-019](#req-f-019) |
+| [US-024](#us-024) | User Story | [FEAT-003](#feat-003), [REQ-F-003](#req-f-003), [REQ-F-004](#req-f-004), [REQ-F-010](#req-f-010) |
+| [US-025](#us-025) | User Story | [FEAT-003](#feat-003), [REQ-F-004](#req-f-004), [REQ-NF-004](#req-nf-004) |
 
 ---
 
@@ -1391,6 +1394,116 @@ Acceptance criteria:
 - `opencode-helper help` shows each command with a brief description of its purpose.
 - `opencode-helper <command> --help` shows a description followed by usage syntax.
 - Commands without descriptions are never shipped.
+
+---
+
+### <a id="us-023"></a>US-023 - Self-update preserves existing installation setup and location
+
+Priority:
+- P0
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-008](#feat-008)
+
+Related requirements:
+- [REQ-F-008](#req-f-008)
+- [REQ-F-019](#req-f-019)
+
+Story:
+- As a developer, I want to run `opencode-helper self-update` from an existing installation to upgrade to a newer release while preserving my established installation setup and location, so that my environment remains stable and the tool stays where I expect it.
+
+Acceptance criteria:
+- Given an existing helper installation at a known `--bin-dir` location, when I run `opencode-helper self-update`, then the updated helper is installed to the same `--bin-dir` location without requiring re-configuration.
+- Given an existing helper installation with a stable symlink or launcher, when `self-update` installs a newer release, then the stable launcher/symlink is updated to point to the newly installed release.
+- Given an existing helper installation, when `self-update` completes successfully, then previously installed releases remain on disk and are available for rollback via `opencode-helper release use <tag>`.
+- Given `opencode-helper self-update --version <tag>`, when `<tag>` exists as an installable GitHub release, then self-update installs that specific version to the existing `--bin-dir` location.
+- Given `opencode-helper self-update`, when a newer release is available, then the CLI downloads, verifies, and activates the newer release; when no newer release is available, then the CLI reports that the current release is up-to-date and exits 0.
+- Given `opencode-helper self-update`, when network access is unavailable or the release fetch fails, then the CLI exits non-zero with a clear error message and the previous installation remains intact.
+
+---
+
+### <a id="us-024"></a>US-024 - Interactive preset selection without memorization
+
+Priority:
+- P1
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-003](#feat-003)
+
+Related requirements:
+- [REQ-F-003](#req-f-003)
+- [REQ-F-004](#req-f-004)
+- [REQ-F-010](#req-f-010)
+
+Story:
+- As a developer, I want to select and apply a preset interactively from a numbered list so that I can switch configurations without remembering preset names.
+
+Rationale:
+Currently, switching presets requires two steps: `preset list` (to see names) then `preset use <name>` (to apply). This adds friction.
+
+Acceptance criteria:
+- Given `opencode-helper preset switch` is invoked in a TTY, when the command runs, then it displays a numbered list of all available presets with their descriptions.
+- Given `opencode-helper preset switch` is invoked with piped stdin, when the input is a number (1-5), then the preset at that position is applied.
+- Given `opencode-helper preset switch` is invoked with piped stdin, when the input is a preset name or partial match, then the matching preset is applied.
+- Given an invalid selection, when in TTY mode, then the command shows an error and re-prompts for input.
+- Given an invalid selection, when in non-TTY mode, then the command exits non-zero with a clear error.
+- Given `opencode-helper preset switch`, when the selected preset is already applied and no overwrite is desired, then overwrite is blocked without `--force`.
+- Given `opencode-helper preset switch --dry-run`, then the command shows what would happen without writing any files.
+- Given `opencode-helper preset switch --force`, then the command overwrites the existing preset.
+- Given `opencode-helper preset switch --project-root <path>`, when the project has a valid manifest, then the current preset is indicated in the interactive list.
+
+---
+
+### <a id="us-025"></a>US-025 - Show current active preset for a project
+
+Priority:
+- P1
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-003](#feat-003)
+
+Related requirements:
+- [REQ-F-004](#req-f-004)
+- [REQ-NF-004](#req-nf-004)
+
+Story:
+- As a developer, I want to query the current preset for a project so that I always know which configuration is active.
+
+Rationale:
+The manifest already stores `preset_name`, but there is no command to read it. Users lack context when running validation or other commands.
+
+Acceptance criteria:
+- Given a project with a valid manifest, when `opencode-helper preset current` runs, then it outputs the preset name, description, source file, and the helper version that applied it.
+- Given a project with a missing manifest, when `opencode-helper preset current` runs, then it exits with a stable missing exit code and prints an actionable message.
+- Given a project with a drifted or invalid manifest, when `opencode-helper preset current` runs, then it exits with a stable drift exit code and prints diagnostics.
+- Given `opencode-helper preset current --project-root <path>`, then it reads the manifest from the specified project root.
 
 ---
 
