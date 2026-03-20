@@ -1468,7 +1468,8 @@ Acceptance criteria:
 - Given `opencode-helper preset switch`, when the selected preset is already applied and no overwrite is desired, then overwrite is blocked without `--force`.
 - Given `opencode-helper preset switch --dry-run`, then the command shows what would happen without writing any files.
 - Given `opencode-helper preset switch --force`, then the command overwrites the existing preset.
-- Given `opencode-helper preset switch --project-root <path>`, when the project has a valid manifest, then the current preset is indicated in the interactive list.
+- Given `opencode-helper preset switch --project-root <path>`, when a valid manifest exists, then the current preset is indicated in the interactive list.
+- Given `opencode-helper preset switch --project-root <path>`, when no manifest is found, then the command warns the user but proceeds to display the preset list without a current indicator.
 
 ---
 
