@@ -221,6 +221,9 @@ preset_source_file() {
   case "$1" in
     openai) printf '%s\n' "$REPO_ROOT/opencode.openai.json" ;;
     mixed) printf '%s\n' "$REPO_ROOT/opencode.mixed.json" ;;
+    big-pickle) printf '%s\n' "$REPO_ROOT/opencode.big-pickle.json" ;;
+    minimax) printf '%s\n' "$REPO_ROOT/opencode.minimax.json" ;;
+    kimi) printf '%s\n' "$REPO_ROOT/opencode.kimi.json" ;;
     *) return 1 ;;
   esac
 }
@@ -229,6 +232,9 @@ preset_source_label() {
   case "$1" in
     openai) printf '%s\n' "opencode.openai.json" ;;
     mixed) printf '%s\n' "opencode.mixed.json" ;;
+    big-pickle) printf '%s\n' "opencode.big-pickle.json" ;;
+    minimax) printf '%s\n' "opencode.minimax.json" ;;
+    kimi) printf '%s\n' "opencode.kimi.json" ;;
     *) return 1 ;;
   esac
 }
@@ -237,6 +243,9 @@ preset_description() {
   case "$1" in
     openai) printf '%s\n' "OpenAI-only model preset." ;;
     mixed) printf '%s\n' "Mixed provider preset." ;;
+    big-pickle) printf '%s\n' "Free Big Pickle model for all agents." ;;
+    minimax) printf '%s\n' "MiniMax M2.5 for planning/review, Big Pickle for implementation." ;;
+    kimi) printf '%s\n' "Kimi K2.5 for planning/review, Big Pickle for implementation." ;;
     *) return 1 ;;
   esac
 }
@@ -260,7 +269,7 @@ Commands:
 
 Shared options (where applicable):
   --project-root PATH   Target project root (default: current directory)
-  --preset NAME         Preset for init (openai|mixed; default: mixed)
+  --preset NAME         Preset for init (big-pickle|minimax|kimi|openai|mixed; default: mixed)
   --output PATH         Config output path (default: opencode.json)
   --force               Allow overwrite of existing output file
   --dry-run             Print planned actions without writing
@@ -323,8 +332,11 @@ Usage:
   $(command_name) preset use <name> [--project-root PATH] [--output PATH] [--force] [--dry-run]
 
 Preset names:
-  openai
-  mixed
+  big-pickle   Free Big Pickle for all agents
+  minimax      MiniMax M2.5 for planning/review, Big Pickle for implementation
+  kimi         Kimi K2.5 for planning/review, Big Pickle for implementation
+  openai       OpenAI-only models
+  mixed        Mixed provider preset
 EOF
 }
 
@@ -424,6 +436,9 @@ apply_preset() {
 cmd_preset_list() {
   printf 'openai\t%s\n' "$(preset_description openai)"
   printf 'mixed\t%s\n' "$(preset_description mixed)"
+  printf 'big-pickle\t%s\n' "$(preset_description big-pickle)"
+  printf 'minimax\t%s\n' "$(preset_description minimax)"
+  printf 'kimi\t%s\n' "$(preset_description kimi)"
   return "$EXIT_OK"
 }
 
@@ -675,11 +690,17 @@ case "$cmd" in
     done
     openai_preset="$REPO_ROOT/opencode.openai.json"
     mixed_preset="$REPO_ROOT/opencode.mixed.json"
+    big_pickle_preset="$REPO_ROOT/opencode.big-pickle.json"
+    minimax_preset="$REPO_ROOT/opencode.minimax.json"
+    kimi_preset="$REPO_ROOT/opencode.kimi.json"
     handoff_schema="$REPO_ROOT/.opencode/schemas/handoff.schema.json"
     result_schema="$REPO_ROOT/.opencode/schemas/result.schema.json"
 
     [ -f "$openai_preset" ] || { err "missing bundled asset: $openai_preset"; exit "$EXIT_MISSING"; }
     [ -f "$mixed_preset" ] || { err "missing bundled asset: $mixed_preset"; exit "$EXIT_MISSING"; }
+    [ -f "$big_pickle_preset" ] || { err "missing bundled asset: $big_pickle_preset"; exit "$EXIT_MISSING"; }
+    [ -f "$minimax_preset" ] || { err "missing bundled asset: $minimax_preset"; exit "$EXIT_MISSING"; }
+    [ -f "$kimi_preset" ] || { err "missing bundled asset: $kimi_preset"; exit "$EXIT_MISSING"; }
     [ -f "$handoff_schema" ] || { err "missing bundled asset: $handoff_schema"; exit "$EXIT_MISSING"; }
     [ -f "$result_schema" ] || { err "missing bundled asset: $result_schema"; exit "$EXIT_MISSING"; }
 
@@ -696,6 +717,9 @@ case "$cmd" in
     printf 'provenance\tcommit_sha\t%s\n' "$commit_sha"
     printf 'preset\topencode.openai.json\t%s\n' "$(cksum_file "$openai_preset")"
     printf 'preset\topencode.mixed.json\t%s\n' "$(cksum_file "$mixed_preset")"
+    printf 'preset\topencode.big-pickle.json\t%s\n' "$(cksum_file "$big_pickle_preset")"
+    printf 'preset\topencode.minimax.json\t%s\n' "$(cksum_file "$minimax_preset")"
+    printf 'preset\topencode.kimi.json\t%s\n' "$(cksum_file "$kimi_preset")"
     printf 'schema\thandoff.schema.json\t%s\n' "$(cksum_file "$handoff_schema")"
     printf 'schema\tresult.schema.json\t%s\n' "$(cksum_file "$result_schema")"
     exit "$EXIT_OK"
