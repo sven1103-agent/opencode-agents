@@ -476,16 +476,18 @@ test_yes_shell_missing_no_changes() {
   home=$(make_home)
   status=0
   HOME="$home" SHELL="" sh "$INSTALLER" --yes --bin-dir "$home/bin" >/dev/null 2>&1 || status=$?
-  [ "$status" -ne 0 ] || fail "expected non-zero exit when SHELL is empty"
-  [ -z "$(ls -A "$home")" ] || fail "expected no filesystem changes when SHELL unset"
+  [ "$status" -eq 0 ] || fail "expected zero exit when SHELL is empty (install should succeed with warnings)"
+  [ -x "$home/bin/opencode-helper" ] || fail "expected helper binary to be installed"
+  [ -z "$(ls -A "$home/.zshrc" 2>/dev/null)" ] || fail "did not expect shell config changes when SHELL unset"
 }
 
 test_yes_shell_unsupported_no_changes() {
   home=$(make_home)
   status=0
   HOME="$home" SHELL="/bin/tcsh" sh "$INSTALLER" --yes --bin-dir "$home/bin" >/dev/null 2>&1 || status=$?
-  [ "$status" -ne 0 ] || fail "expected non-zero exit for unsupported shell"
-  [ -z "$(ls -A "$home")" ] || fail "expected no filesystem changes for unsupported shell"
+  [ "$status" -eq 0 ] || fail "expected zero exit for unsupported shell (install should succeed with warnings)"
+  [ -x "$home/bin/opencode-helper" ] || fail "expected helper binary to be installed"
+  [ -z "$(ls -A "$home/.zshrc" 2>/dev/null)" ] || fail "did not expect shell config changes for unsupported shell"
 }
 
 test_helper_version_works_without_release_manifest() {

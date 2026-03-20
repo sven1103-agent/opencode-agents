@@ -249,14 +249,14 @@ Usage:
   $(command_name) <command> [options]
 
 Commands:
-  help
-  init
-  preset list
-  preset use <name>
-  release use <tag>
-  schema install
-  validate
-  version
+  help                          Show this help message
+  init                          Initialize project with preset and schemas
+  preset list                   List available bundled presets
+  preset use <name>             Apply a preset to output path
+  release use <tag>             Switch to an already installed release
+  schema install                Install schemas into project
+  validate                      Verify setup health and detect drift
+  version                       Show CLI version and bundled asset identity
 
 Shared options (where applicable):
   --project-root PATH   Target project root (default: current directory)
@@ -274,9 +274,27 @@ Exit codes:
 EOF
 }
 
+usage_preset_list() {
+  cat <<EOF
+preset list - list all bundled presets with their names and descriptions
+
+Usage:
+  $(command_name) preset list
+EOF
+}
+
+usage_version() {
+  cat <<EOF
+version - print CLI version, release provenance, and bundled asset checksums
+
+Usage:
+  $(command_name) version
+EOF
+}
+
 usage_release_use() {
   cat <<EOF
-release use - reactivate an already installed local release
+release use - activate a previously installed helper release by tag (no re-download)
 
 Usage:
   $(command_name) release use <tag>
@@ -285,7 +303,7 @@ EOF
 
 usage_init() {
   cat <<EOF
-init - apply preset, install local schemas, write helper manifest
+init - apply a preset, install schemas, and write a helper manifest in one step
 
 Usage:
   $(command_name) init [--project-root PATH] [--preset NAME] [--output PATH] [--force] [--dry-run]
@@ -299,7 +317,7 @@ EOF
 
 usage_preset_use() {
   cat <<EOF
-preset use - apply selected preset to output path
+preset use - copy a bundled preset to the output path for a target project
 
 Usage:
   $(command_name) preset use <name> [--project-root PATH] [--output PATH] [--force] [--dry-run]
@@ -312,7 +330,7 @@ EOF
 
 usage_schema_install() {
   cat <<EOF
-schema install - install local schemas into project root
+schema install - copy bundled handoff and result schemas into the project
 
 Usage:
   $(command_name) schema install [--project-root PATH] [--dry-run]
@@ -321,7 +339,7 @@ EOF
 
 usage_validate() {
   cat <<EOF
-validate - verify helper manifest, config presence, drift, and schema status
+validate - check manifest presence, config file, checksums, and schema integrity
 
 Usage:
   $(command_name) validate [--project-root PATH] [--output PATH]
@@ -650,6 +668,11 @@ case "$cmd" in
     exit "$EXIT_OK"
     ;;
   version)
+    for arg in "$@"; do
+      case "$arg" in
+        -h|--help) usage_version; exit "$EXIT_OK" ;;
+      esac
+    done
     openai_preset="$REPO_ROOT/opencode.openai.json"
     mixed_preset="$REPO_ROOT/opencode.mixed.json"
     handoff_schema="$REPO_ROOT/.opencode/schemas/handoff.schema.json"
@@ -700,6 +723,11 @@ case "$cmd" in
     [ "$#" -gt 0 ] && shift
     case "$sub" in
       list)
+        for arg in "$@"; do
+          case "$arg" in
+            -h|--help) usage_preset_list; exit "$EXIT_OK" ;;
+          esac
+        done
         if [ "$#" -gt 0 ]; then
           err "preset list accepts no flags"
           exit "$EXIT_ERR"
@@ -710,6 +738,11 @@ case "$cmd" in
       use)
         preset_arg=${1:-}
         [ "$#" -gt 0 ] && shift
+        for arg in "$preset_arg" "$@"; do
+          case "$arg" in
+            -h|--help) usage_preset_use; exit "$EXIT_OK" ;;
+          esac
+        done
         [ -n "$preset_arg" ] || { err "preset use requires a preset name"; usage_preset_use; exit "$EXIT_ERR"; }
         parse_common_flags "$@"
         rc=$?
@@ -717,7 +750,7 @@ case "$cmd" in
           usage_preset_use
           exit "$EXIT_OK"
         fi
-        [ "$rc" -eq 0 ] || exit "$rc"
+        [ "$rc" -eq 0 ] || exit $rc
         apply_preset "$preset_arg" "$project_root" "$output" "$force" "$dry_run" 0
         exit $?
         ;;
@@ -733,6 +766,11 @@ case "$cmd" in
       use)
         release_tag=${1:-}
         [ "$#" -gt 0 ] && shift
+        for arg in "$release_tag" "$@"; do
+          case "$arg" in
+            -h|--help) usage_release_use; exit "$EXIT_OK" ;;
+          esac
+        done
         [ "$#" -eq 0 ] || { err "release use accepts no flags"; usage_release_use; exit "$EXIT_ERR"; }
         cmd_release_use "$release_tag"
         exit $?

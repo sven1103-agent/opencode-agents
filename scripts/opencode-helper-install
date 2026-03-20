@@ -731,7 +731,7 @@ copy_helper_binary "$SOURCE_HELPER" "$BIN_DIR" "$INSTALL_HOME" || exit 1
 activate_release_current_symlink "$INSTALL_HOME" "$RELEASE_DIR" || exit 1
 
 PATH_UPDATED=0
-if SHELL_NAME=$(detect_shell_name 2>/dev/null); then
+if SHELL_NAME=$(detect_shell_name 2>/dev/null) && [ -n "$SHELL_NAME" ]; then
   RC_FILE=$(select_rc_file "$SHELL_NAME") || {
     err "failed to determine shell config file"
     exit 1
