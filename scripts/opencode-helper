@@ -434,6 +434,71 @@ write_manifest() {
   return "$EXIT_OK"
 }
 
+# Detect legacy V1 setup based on manifest presence and helper_version
+# Returns: sets global variables is_legacy and legacy_version
+detect_legacy_setup() {
+  project_root=$1
+
+  manifest_path="$project_root/.opencode/opencode-helper-manifest.tsv"
+
+  # No manifest means not legacy (new project)
+  if [ ! -f "$manifest_path" ]; then
+    is_legacy=0
+    legacy_version=""
+    return 0
+  fi
+
+  # Check for config-sources.json - if present, project has begun V2 migration
+  if [ -f "$project_root/.opencode/config-sources.json" ]; then
+    is_legacy=0
+    legacy_version=""
+    return 0
+  fi
+
+  # Read helper_version from manifest
+  helper_version=$(read_manifest_value "$manifest_path" helper_version 2>/dev/null) || helper_version=""
+
+  # If helper_version is missing, treat as legacy V1 (conservative assumption)
+  if [ -z "$helper_version" ]; then
+    is_legacy=1
+    legacy_version="unknown"
+    return 0
+  fi
+
+  # If helper_version >= 2.0.0, it's not legacy
+  case "$helper_version" in
+    2.*|3.*|4.*|5.*|6.*|7.*|8.*|9.*)
+      is_legacy=0
+      legacy_version=""
+      return 0
+      ;;
+  esac
+
+  # Any version < 2.0.0 is legacy V1
+  is_legacy=1
+  legacy_version="$helper_version"
+  return 0
+}
+
+# Output actionable migration guidance for V1 users
+show_migration_guidance() {
+  log ""
+  log "=== Legacy V1 Setup Detected ==="
+  log ""
+  log "Your project uses the V1 bundled-preset workflow."
+  log "The V2+ CLI includes config-source management that replaces this workflow."
+  log ""
+  log "Migration steps:"
+  log "  1. Review your current preset: opencode-helper preset current"
+  log "  2. The V2+ CLI preserves your existing opencode.json in place"
+  log "  3. Run 'opencode-helper self-update' to upgrade the CLI"
+  log "  4. After upgrade, run 'opencode-helper init' to migrate to V2 format"
+  log ""
+  log "Your project files remain unchanged during self-update."
+  log "For details, see docs/opencode-helper-cli.md"
+  log ""
+}
+
 apply_preset() {
   preset_name=$1
   project_root=$2
@@ -594,6 +659,13 @@ cmd_preset_current() {
     return "$EXIT_DRIFT"
   }
 
+  # Determine legacy status for display
+  legacy_indicator=""
+  case "$helper_version" in
+    2.*|3.*|4.*|5.*|6.*|7.*|8.*|9.*) legacy_indicator="" ;;
+    *) legacy_indicator=" (legacy V1)" ;;
+  esac
+
   [ -f "$output_path" ] || {
     err "missing config file: $output_path"
     return "$EXIT_MISSING"
@@ -614,6 +686,7 @@ cmd_preset_current() {
   printf 'output_path\t%s\n' "$output_path"
   printf 'source_preset\t%s\n' "$source_preset"
   printf 'helper_version\t%s\n' "$helper_version"
+  [ -n "$legacy_indicator" ] && printf 'legacy%s\n' "$legacy_indicator"
   return "$EXIT_OK"
 }
 
@@ -751,6 +824,12 @@ cmd_validate() {
   fi
 
   schema_inspect_root "$project_root/.opencode" || return $?
+
+  # Check for legacy V1 setup and warn (but don't fail)
+  detect_legacy_setup "$project_root"
+  if [ "$is_legacy" -eq 1 ]; then
+    show_migration_guidance
+  fi
 
   log "healthy: helper validation passed"
   return "$EXIT_OK"
