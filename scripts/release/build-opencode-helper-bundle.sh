@@ -68,6 +68,7 @@ BUNDLE_ROOT="opencode-helper-$TAG"
 TARBALL_NAME="$BUNDLE_ROOT.tar.gz"
 MANIFEST_NAME="$BUNDLE_ROOT-manifest.json"
 CHECKSUMS_NAME="$BUNDLE_ROOT-checksums.txt"
+BUNDLE_MANIFEST_NAME="opencode-bundle.manifest.json"
 INSTALLER_NAME="opencode-helper-install"
 BOOTSTRAP_NAME="install.sh"
 
@@ -95,6 +96,24 @@ chmod 644 "$STAGE/opencode.minimax.json" "$STAGE/opencode.minimax.json"
 chmod 644 "$STAGE/opencode.kimi.json" "$STAGE/opencode.kimi.json"
 chmod 644 "$STAGE/.opencode/schemas/handoff.schema.json" "$STAGE/.opencode/schemas/result.schema.json"
 
+# Generate opencode-bundle.manifest.json (REQ-F-022) - before content hashing
+BUNDLE_MANIFEST_INNER="$STAGE/$BUNDLE_MANIFEST_NAME"
+{
+  printf '{\n'
+  printf '  "manifest_version": 1,\n'
+  printf '  "bundle_name": "opencode-helper",\n'
+  printf '  "bundle_version": "%s",\n' "$TAG"
+  printf '  "presets": [\n'
+  printf '    {"name": "openai", "description": "OpenAI GPT-5 based coding and docs agents", "entrypoint": "opencode.openai.json", "prompt_files": []},\n'
+  printf '    {"name": "mixed", "description": "Claude + GPT-5 hybrid coding and docs agents", "entrypoint": "opencode.mixed.json", "prompt_files": []},\n'
+  printf '    {"name": "big-pickle", "description": "Big-Pickle model based coding and docs agents", "entrypoint": "opencode.big-pickle.json", "prompt_files": []},\n'
+  printf '    {"name": "minimax", "description": "MiniMax M2.5 based coding and docs agents", "entrypoint": "opencode.minimax.json", "prompt_files": []},\n'
+  printf '    {"name": "kimi", "description": "Kimi K2.5 based coding and docs agents", "entrypoint": "opencode.kimi.json", "prompt_files": []}\n'
+  printf '  ]\n'
+  printf '}\n'
+} > "$BUNDLE_MANIFEST_INNER"
+chmod 644 "$BUNDLE_MANIFEST_INNER"
+
 FILES='scripts/opencode-helper
 scripts/opencode-helper-install
 install.sh
@@ -104,7 +123,8 @@ opencode.big-pickle.json
 opencode.minimax.json
 opencode.kimi.json
 .opencode/schemas/handoff.schema.json
-.opencode/schemas/result.schema.json'
+.opencode/schemas/result.schema.json
+opencode-bundle.manifest.json'
 
 CONTENTS_FILE="$TMP_DIR/contents.jsonl"
 : > "$CONTENTS_FILE"
@@ -144,6 +164,7 @@ touch -t 198001010000 "$STAGE/opencode.openai.json" "$STAGE/opencode.mixed.json"
 touch -t 198001010000 "$STAGE/opencode.big-pickle.json" "$STAGE/opencode.minimax.json" "$STAGE/opencode.kimi.json"
 touch -t 198001010000 "$STAGE/.opencode/schemas/handoff.schema.json" "$STAGE/.opencode/schemas/result.schema.json"
 touch -t 198001010000 "$MANIFEST_INNER"
+touch -t 198001010000 "$BUNDLE_MANIFEST_INNER"
 
 LIST_FILE="$TMP_DIR/tar.list"
 cat > "$LIST_FILE" <<EOF
@@ -162,6 +183,7 @@ $BUNDLE_ROOT/.opencode/schemas
 $BUNDLE_ROOT/.opencode/schemas/handoff.schema.json
 $BUNDLE_ROOT/.opencode/schemas/result.schema.json
 $BUNDLE_ROOT/release-manifest.json
+$BUNDLE_ROOT/opencode-bundle.manifest.json
 EOF
 
 TAR_PATH="$OUTPUT_DIR/$TARBALL_NAME"
