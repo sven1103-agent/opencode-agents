@@ -148,6 +148,53 @@ The external `*-manifest.json` matches the in-bundle `release-manifest.json` byt
 
 `scripts/opencode-helper-install` now installs from the latest published GitHub release by default. It downloads `opencode-helper-<tag>.tar.gz` together with `opencode-helper-<tag>-checksums.txt`, verifies the tarball SHA-256 before extraction, and aborts without activating the bundle if verification fails.
 
+### V2 Config Bundle Manifest
+
+V2 bundles (for use with `opencode-helper source` commands) must include `opencode-bundle.manifest.json` at the bundle root:
+
+```text
+<bundle-root>/
+  opencode-bundle.manifest.json  <- required for V2
+  opencode.openai.json
+  opencode.mixed.json
+  ...
+```
+
+**Required manifest structure:**
+
+```json
+{
+  "manifest_version": 1,
+  "bundle_name": "my-bundle",
+  "bundle_version": "v1.0.0",
+  "presets": [
+    {
+      "name": "openai",
+      "description": "My OpenAI preset",
+      "entrypoint": "opencode.openai.json",
+      "prompt_files": []
+    }
+  ]
+}
+```
+
+**Field reference:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `manifest_version` | Yes | Must be `1` |
+| `bundle_name` | Yes | Stable bundle identifier |
+| `bundle_version` | Yes | Release tag/version |
+| `presets` | Yes | Array of preset objects |
+| `presets[].name` | Yes | Stable preset ID |
+| `presets[].description` | Yes | Short description |
+| `presets[].entrypoint` | Yes | Path to preset JSON in bundle |
+| `presets[].prompt_files` | Yes | Array of prompt file paths (can be empty) |
+
+Optional: `source_repo`, `source_commit`, `release_tag`
+
+For full specification, see [Bundle Manifest Reference](docs/opencode-helper-cli.md#bundle-manifest-reference) in the PRD.
+
 ### Calling Agents
 
 ```bash
