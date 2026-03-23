@@ -2174,10 +2174,10 @@ Priority:
 - P1
 
 Status:
-- In progress
+- Done
 
 PR:
-- TBD
+- [#50](https://github.com/sven1103-agent/opencode-agents/pull/50)
 
 Type:
 - Maintainer-facing
