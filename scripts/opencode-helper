@@ -299,7 +299,10 @@ usage_preset_list() {
 preset list - list all bundled presets with their names and descriptions
 
 Usage:
-  $(command_name) preset list
+  $(command_name) preset list [--sources]
+
+Options:
+  --sources    List presets from registered config sources instead of bundled presets
 EOF
 }
 
@@ -1102,11 +1105,203 @@ apply_preset() {
 }
 
 cmd_preset_list() {
+  # Check for --sources flag
+  list_sources=0
+  for arg in "$@"; do
+    case "$arg" in
+      --sources)
+        list_sources=1
+        ;;
+      -h|--help)
+        usage_preset_list
+        return "$EXIT_OK"
+        ;;
+    esac
+  done
+
+  if [ "$list_sources" -eq 1 ]; then
+    cmd_preset_list_sources
+    return $?
+  fi
+
   printf 'openai\t%s\n' "$(preset_description openai)"
   printf 'mixed\t%s\n' "$(preset_description mixed)"
   printf 'big-pickle\t%s\n' "$(preset_description big-pickle)"
   printf 'minimax\t%s\n' "$(preset_description minimax)"
   printf 'kimi\t%s\n' "$(preset_description kimi)"
+  return "$EXIT_OK"
+}
+
+# Read presets from a source manifest file
+# Arguments: manifest_path source_id source_name bundle_version
+# Output: tab-separated preset lines (name\tdescription)
+preset_list_sources_read_manifest() {
+  manifest_path=$1
+  source_id=$2
+  source_name=$3
+  bundle_version=$4
+
+  # Check manifest file exists
+  if [ ! -f "$manifest_path" ]; then
+    return "$EXIT_MISSING"
+  fi
+
+  # Parse presets from JSON using awk
+  # The manifest format has presets as an array of objects with name, description, entrypoint
+  awk -v source_id="$source_id" \
+      -v source_name="$source_name" \
+      -v bundle_version="$bundle_version" '
+    BEGIN {
+      in_presets = 0
+      brace_count = 0
+    }
+    # Detect presets array start
+    /"presets"[[:space:]]*:/ {
+      in_presets = 1
+      next
+    }
+    # Track brace depth in presets section (both [ ] and { })
+    in_presets && /\[/ {
+      brace_count++
+      next
+    }
+    in_presets && /\]/ {
+      brace_count--
+      if (brace_count <= 0) {
+        in_presets = 0
+      }
+      next
+    }
+    in_presets && /\{/ {
+      brace_count++
+      next
+    }
+    in_presets && /\}/ {
+      brace_count--
+      if (brace_count <= 0) {
+        in_presets = 0
+      }
+      next
+    }
+    # In presets, look for name and description fields
+    in_presets && brace_count > 0 {
+      # Extract name value
+      if ($0 ~ /"name"[[:space:]]*:/) {
+        sub(/.*"name"[[:space:]]*:[[:space:]]*/, "")
+        sub(/[[:space:]]*,.*$/, "")
+        gsub(/"/, "")
+        name = $0
+      }
+      # Extract description value
+      if ($0 ~ /"description"[[:space:]]*:/) {
+        sub(/.*"description"[[:space:]]*:[[:space:]]*/, "")
+        sub(/[[:space:]]*,.*$/, "")
+        gsub(/"/, "")
+        description = $0
+        # When we have both name and description, print the preset line
+        if (name != "" && description != "") {
+          printf "%s\t%s\t%s\t%s\t%s\n", source_id, source_name, bundle_version, name, description
+          name = ""
+          description = ""
+        }
+      }
+    }
+  ' "$manifest_path"
+}
+
+# List presets from all registered config sources
+cmd_preset_list_sources() {
+  # Check if any sources are registered
+  registry_json=$(source_registry_load)
+
+  if [ "$registry_json" = "[]" ] || [ -z "$registry_json" ]; then
+    log "no sources registered"
+    return "$EXIT_OK"
+  fi
+
+  sources_found=0
+
+  # Parse each source entry and process its manifest
+  # Using awk to extract fields from JSON, piped to while loop
+  printf '%s\n' "$registry_json" | awk '
+    BEGIN {
+      RS = ""
+      FS = "\n"
+    }
+    {
+      id = ""; name = ""; type = ""; location = ""
+      for (i = 1; i <= NF; i++) {
+        if ($i ~ /"id"[[:space:]]*:/) { sub(/.*"id"[[:space:]]*:[[:space:]]*/, "", $i); sub(/[[:space:]]*,.*$/, "", $i); gsub(/[ "]/, "", $i); id = $i }
+        if ($i ~ /"name"[[:space:]]*:/) { sub(/.*"name"[[:space:]]*:[[:space:]]*/, "", $i); sub(/[[:space:]]*,.*$/, "", $i); gsub(/"/, "", $i); name = $i }
+        if ($i ~ /"type"[[:space:]]*:/) { sub(/.*"type"[[:space:]]*:[[:space:]]*/, "", $i); sub(/[[:space:]]*,.*$/, "", $i); gsub(/"/, "", $i); type = $i }
+        if ($i ~ /"location"[[:space:]]*:/) { sub(/.*"location"[[:space:]]*:[[:space:]]*/, "", $i); sub(/[[:space:]]*,.*$/, "", $i); sub(/[[:space:]]*[}].*$/, "", $i); gsub(/"/, "", $i); location = $i }
+      }
+      if (id != "" && type != "" && location != "") { printf "%s|%s|%s|%s\n", id, name, type, location }
+    }
+  ' | {
+    while IFS='|' read -r source_id source_name source_type location; do
+      sources_found=1
+
+      case "$source_type" in
+        local-dir)
+          manifest_path="$location/opencode-bundle.manifest.json"
+          ;;
+        local-tarball)
+          # Extract manifest to temp file
+          manifest_filename="opencode-bundle.manifest.json"
+          tmp_extract=$(mktemp -d "${TMPDIR:-/tmp}/opencode-helper-preset-list.XXXXXX") || continue
+          if tar -xzf "$location" -C "$tmp_extract" "$manifest_filename" 2>/dev/null; then
+            manifest_path="$tmp_extract/$manifest_filename"
+          else
+            rm -rf "$tmp_extract"
+            log "skipping source $source_name: failed to extract manifest from tarball"
+            continue
+          fi
+          ;;
+        github-release)
+          log "skipping source $source_name: GitHub release sources not yet supported"
+          continue
+          ;;
+        *)
+          log "skipping source $source_name: unknown type $source_type"
+          continue
+          ;;
+      esac
+
+      # Check if manifest exists
+      if [ ! -f "$manifest_path" ]; then
+        log "skipping source $source_name: manifest not found at $manifest_path"
+        [ "$source_type" = "local-tarball" ] && rm -rf "$tmp_extract"
+        continue
+      fi
+
+      # Get bundle version from manifest
+      bundle_version=$(awk -F '"' '/"bundle_version"[[:space:]]*:/ {print $4; exit}' "$manifest_path" 2>/dev/null)
+      if [ -z "$bundle_version" ]; then
+        bundle_version="unknown"
+      fi
+
+      # Read and output presets from this source
+      preset_list_sources_read_manifest "$manifest_path" "$source_id" "$source_name" "$bundle_version"
+
+      # Cleanup temp extract for tarball
+      [ "$source_type" = "local-tarball" ] && rm -rf "$tmp_extract"
+    done
+    # Export sources_found to parent shell
+    printf '%s\n' "$sources_found" > /tmp/opencode-helper-sources-found.$$ 
+  }
+
+  # Read the sources_found value back
+  if [ -f /tmp/opencode-helper-sources-found.$$ ]; then
+    sources_found=$(cat /tmp/opencode-helper-sources-found.$$)
+    rm -f /tmp/opencode-helper-sources-found.$$
+  fi
+
+  if [ "$sources_found" -eq 0 ]; then
+    log "no sources registered"
+    return "$EXIT_OK"
+  fi
+
   return "$EXIT_OK"
 }
 
@@ -2018,14 +2213,10 @@ case "$cmd" in
       list)
         for arg in "$@"; do
           case "$arg" in
-            -h|--help) usage_preset_list; exit "$EXIT_OK" ;;
+            -h|--help|--sources) : ;;  # handled in cmd_preset_list
           esac
         done
-        if [ "$#" -gt 0 ]; then
-          err "preset list accepts no flags"
-          exit "$EXIT_ERR"
-        fi
-        cmd_preset_list
+        cmd_preset_list "$@"
         exit $?
         ;;
       use)
