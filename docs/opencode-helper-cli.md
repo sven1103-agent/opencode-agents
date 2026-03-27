@@ -2332,10 +2332,10 @@ Priority:
 - P1
 
 Status:
-- Planned
+- Done
 
 PR:
-- TBD
+- #68
 
 Type:
 - User-facing

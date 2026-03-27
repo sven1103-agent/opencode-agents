@@ -301,6 +301,7 @@ Commands:
   bundle apply <source-id>      Apply a preset from a config bundle
   bundle status                 Show provenance for applied bundle
   bundle update <source-id>     Check for and apply newer bundle releases
+  migrate legacy-config         Migrate legacy project to config-source management
   validate                      Verify setup health and detect drift
   version                       Show CLI version and bundled asset identity
 
@@ -447,6 +448,23 @@ usage_validate() {
 
 Usage:
   $(command_name) validate [--project-root PATH] [--output PATH]
+EOF
+}
+
+usage_migrate() {
+  cat <<EOF
+migrate - migrate legacy projects to config-source management
+
+Usage:
+  $(command_name) migrate legacy-config [--project-root PATH] [--yes]
+
+Options:
+  --project-root PATH   Project root (default: current directory)
+  --yes                Skip confirmation prompt (for non-interactive use)
+
+Examples:
+  $(command_name) migrate legacy-config
+  $(command_name) migrate legacy-config --project-root ./myproject --yes
 EOF
 }
 
@@ -2939,6 +2957,198 @@ cmd_validate() {
   return "$EXIT_OK"
 }
 
+# === Migrate Command ===
+
+cmd_migrate() {
+  sub=${1:-}
+  [ "$#" -gt 0 ] && shift
+  case "$sub" in
+    legacy-config)
+      cmd_migrate_legacy "$@"
+      exit $?
+      ;;
+    -h|--help)
+      usage_migrate
+      exit "$EXIT_OK"
+      ;;
+    *)
+      err "unknown migrate command: ${sub:-}"; usage_migrate; exit "$EXIT_ERR"
+      ;;
+  esac
+}
+
+cmd_migrate_legacy() {
+  project_root=$PWD
+  skip_confirm=false
+
+  # Parse arguments
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --project-root)
+        [ "$#" -ge 2 ] || { err "--project-root requires PATH"; return "$EXIT_ERR"; }
+        project_root=$2
+        shift 2
+        ;;
+      --yes)
+        skip_confirm=true
+        shift
+        ;;
+      -h|--help)
+        usage_migrate
+        return "$EXIT_OK"
+        ;;
+      *)
+        err "unknown option: $1"; usage_migrate; return "$EXIT_ERR"
+        ;;
+    esac
+  done
+
+  # Validate project root
+  [ -d "$project_root" ] || { err "project root not found: $project_root"; return "$EXIT_MISSING"; }
+
+  # Check if project is a legacy setup using existing detect_legacy_setup()
+  detect_legacy_setup "$project_root"
+
+  if [ "$is_legacy" -eq 0 ]; then
+    log "project is not a legacy setup"
+    return "$EXIT_OK"
+  fi
+
+  # Project is legacy - prompt for confirmation
+  if [ "$skip_confirm" = true ]; then
+    log "migrating legacy project (--yes specified)"
+  elif [ -t 0 ]; then
+    printf "migrate legacy project at %s? [Y/n] " "$project_root"
+    read -r response
+    case "$response" in
+      [yY]|[yY][eE][sS])
+        log "migrating legacy project..."
+        ;;
+      *)
+        log "migration cancelled"
+        return "$EXIT_OK"
+        ;;
+    esac
+  else
+    err "cannot prompt for confirmation (not a TTY). Use --yes flag."
+    return "$EXIT_ERR"
+  fi
+
+  # Perform migration
+  opencode_dir="$project_root/.opencode"
+
+  # Create .opencode directory if it doesn't exist
+  if ! mkdir -p "$opencode_dir"; then
+    err "failed to create directory: $opencode_dir"
+    return "$EXIT_ERR"
+  fi
+
+  # Generate a synthetic source ID based on the project path
+  source_id=$(source_generate_id "$project_root")
+  source_name="legacy-migration-$(basename "$project_root")"
+
+  # Create config-sources.json with a synthetic source entry
+  config_sources_file="$opencode_dir/config-sources.json"
+
+  # Check if config-sources.json already exists
+  if [ -f "$config_sources_file" ]; then
+    # Append to existing file (simple approach: read, add entry, write back)
+    tmp_file="$config_sources_file.tmp.$$"
+    # For simplicity, we'll just create a new entry at the beginning
+    {
+      printf '  {\n'
+      printf '    "id": "%s",\n' "$source_id"
+      printf '    "name": "%s",\n' "$source_name"
+      printf '    "type": "legacy-bundle",\n'
+      printf '    "location": "%s",\n' "$project_root"
+      printf '    "added_at": "%s",\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      printf '    "capabilities": {\n'
+      printf '      "discovery": false,\n'
+      printf '      "version_selection": false,\n'
+      printf '      "update_check": false\n'
+      printf '    },\n'
+      printf '    "migration_source": "legacy-manifest"\n'
+      printf '  },\n'
+    } > "$tmp_file" || {
+      err "failed to create temporary file"
+      return "$EXIT_ERR"
+    }
+    # Read existing content, skip opening [ and add comma after first entry
+    if [ -s "$config_sources_file" ]; then
+      tail -n +2 "$config_sources_file" | sed '1s/^  {$/  {/' >> "$tmp_file" 2>/dev/null || cat "$config_sources_file" >> "$tmp_file"
+    fi
+    # Ensure proper JSON array format
+    {
+      echo "["
+      cat "$tmp_file"
+      echo "]"
+    } > "$config_sources_file"
+    rm -f "$tmp_file"
+  else
+    # Create new config-sources.json
+    cat > "$config_sources_file" <<EOF
+[
+  {
+    "id": "$source_id",
+    "name": "$source_name",
+    "type": "legacy-bundle",
+    "location": "$project_root",
+    "added_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+    "capabilities": {
+      "discovery": false,
+      "version_selection": false,
+      "update_check": false
+    },
+    "migration_source": "legacy-manifest"
+  }
+]
+EOF
+  fi
+
+  # Write provenance to bundle-provenance.json with migration info
+  provenance_file="$opencode_dir/bundle-provenance.json"
+  manifest_path="$opencode_dir/opencode-helper-manifest.tsv"
+
+  # Read legacy preset info if available
+  legacy_preset_name=""
+  legacy_output_path=""
+  if [ -f "$manifest_path" ]; then
+    legacy_preset_name=$(read_manifest_value "$manifest_path" preset_name 2>/dev/null) || legacy_preset_name="unknown"
+    legacy_output_path=$(read_manifest_value "$manifest_path" output_path 2>/dev/null) || legacy_output_path="unknown"
+  fi
+
+  # Create provenance with migration info
+  if ! cat > "$provenance_file" <<PROVEOF
+{
+  "source_id": "$source_id",
+  "source_name": "$source_name",
+  "source_type": "legacy-bundle",
+  "bundle_version": "migrated",
+  "preset_name": "$legacy_preset_name",
+  "entrypoint": "$legacy_output_path",
+  "applied_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "migration_info": {
+    "migrated_from": "legacy-manifest",
+    "legacy_version": "$legacy_version",
+    "legacy_preset": "$legacy_preset_name"
+  }
+}
+PROVEOF
+  then
+    err "failed to write provenance file: $provenance_file"
+    # Clean up config-sources.json on error
+    rm -f "$config_sources_file"
+    return "$EXIT_ERR"
+  fi
+
+  log "migrated: $project_root"
+  log "  created: $config_sources_file"
+  log "  created: $provenance_file"
+  log "  preserved: $manifest_path (legacy manifest)"
+
+  return "$EXIT_OK"
+}
+
 helper_installed_release_root() {
   # In an installed bundle, this script is invoked via INSTALL_HOME/current/scripts/opencode-helper.
   # `current` is a symlink, so use `pwd -P` to resolve to INSTALL_HOME/releases/<tag>.
@@ -3809,6 +4019,10 @@ case "$cmd" in
         err "unknown bundle command: ${sub:-}"; usage; exit "$EXIT_ERR"
         ;;
     esac
+    ;;
+  migrate)
+    cmd_migrate "$@"
+    exit $?
     ;;
   validate)
     parse_common_flags "$@"
