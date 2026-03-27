@@ -168,7 +168,7 @@ Primary stories:
 
 Implementation:
 - `US-030`: ✅ Merged (PR #66)
-- `US-031`: ⏳ Open
+- `US-031`: ✅ Merged (PR #67)
 - `US-037`: ⏳ Open
 
 Why here:
@@ -216,7 +216,7 @@ Legacy migration path:
 | 10 | `US-035` | ✅ Merged | PR #64 |
 | 11 | `US-039` | ✅ Merged | PR #65 |
 | 12 | `US-030` | ✅ Merged | PR #66 |
-| 13 | `US-031` | ⏳ Open | - |
+| 13 | `US-031` | ✅ Merged | PR #67 |
 | 14 | `US-037` | ⏳ Open | - |
 
 ## Notes

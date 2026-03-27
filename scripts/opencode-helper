@@ -64,6 +64,25 @@ json_escape() {
   printf '%s' "$1" | perl -pe 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\r/\\r/g; s/\n/\\n/g'
 }
 
+# Compare two version strings using semantic versioning
+# Args: v1 v2
+# Returns: 0 if v1 < v2, 1 if v1 > v2, 2 if equal
+version_compare() {
+  v1=$1
+  v2=$2
+
+  # Use sort -V for semantic version comparison
+  lower=$(printf '%s\n%s\n' "$v1" "$v2" | sort -V | head -1)
+
+  if [ "$lower" = "$v1" ] && [ "$v1" != "$v2" ]; then
+    return 0  # v1 < v2
+  elif [ "$lower" = "$v2" ] && [ "$v1" != "$v2" ]; then
+    return 1  # v1 > v2
+  else
+    return 2  # v1 = v2
+  fi
+}
+
 schema_source_file() {
   case "$1" in
     handoff) printf '%s\n' "$VENDORED_SCHEMA_DIR/handoff.schema.json" ;;
@@ -281,6 +300,7 @@ Commands:
   source remove <id>            Unregister a config source
   bundle apply <source-id>      Apply a preset from a config bundle
   bundle status                 Show provenance for applied bundle
+  bundle update <source-id>     Check for and apply newer bundle releases
   validate                      Verify setup health and detect drift
   version                       Show CLI version and bundled asset identity
 
@@ -1179,6 +1199,25 @@ Examples:
 EOF
 }
 
+usage_bundle_update() {
+  cat <<EOF
+bundle update - check for and apply newer bundle releases
+
+Usage:
+  $(command_name) bundle update <source-id> [--yes]
+
+Arguments:
+  source-id      Registered config source ID (see 'source list')
+
+Options:
+  --yes          Skip confirmation prompt (for non-interactive use)
+
+Examples:
+  $(command_name) bundle update 12345
+  $(command_name) bundle update 12345 --yes
+EOF
+}
+
 # === Bundle Apply Functions ===
 
 # Resolve a source ID to its type and location from the registry
@@ -1808,6 +1847,116 @@ cmd_bundle_status() {
   printf "  applied_at:     %s\n" "$applied_at"
 
   return "$EXIT_OK"
+}
+
+cmd_bundle_update() {
+  source_id=${1:-}
+  skip_confirm=false
+
+  # Parse arguments
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --yes)
+        skip_confirm=true
+        shift
+        ;;
+      -h|--help)
+        usage_bundle_update
+        return "$EXIT_OK"
+        ;;
+      *)
+        err "unknown option: $1"
+        usage_bundle_update
+        return "$EXIT_ERR"
+        ;;
+    esac
+  done
+
+  [ -n "$source_id" ] || {
+    err "bundle update requires a source-id"
+    usage_bundle_update
+    return "$EXIT_ERR"
+  }
+
+  # Check for update_check capability
+  source_require_capability "$source_id" "update_check" || {
+    err "source $source_id does not support update checks"
+    return "$EXIT_CAPABILITY"
+  }
+
+  project_root=$PWD
+  provenance_file="$project_root/.opencode/bundle-provenance.json"
+
+  if [ ! -f "$provenance_file" ]; then
+    err "no provenance file found: $provenance_file"
+    err "run 'bundle apply' first to apply a bundle"
+    return "$EXIT_MISSING"
+  fi
+
+  # Read current bundle_version from provenance
+  current_version=$(awk -F '"' '/"bundle_version"[[:space:]]*:/ {print $4; exit}' "$provenance_file")
+  if [ -z "$current_version" ]; then
+    err "failed to read current bundle version from provenance"
+    return "$EXIT_ERR"
+  fi
+
+  # Resolve source to get location
+  bundle_resolve_source "$source_id" || return $?
+  
+  if [ "$source_type" != "github-release" ]; then
+    err "bundle update is only supported for github-release sources"
+    return "$EXIT_ERR"
+  fi
+
+  # Fetch latest release info
+  release_info=$(github_fetch_release_info "$source_location" "latest") || return $?
+  
+  # Get the latest tag (stored in GITHUB_LAST_TAG_NAME by github_fetch_release_info)
+  latest_version=$GITHUB_LAST_TAG_NAME
+  
+  if [ -z "$latest_version" ]; then
+    err "failed to get latest version from GitHub"
+    return "$EXIT_ERR"
+  fi
+
+  # Compare versions using semantic version comparison
+  # version_compare returns: 0 if v1 < v2, 1 if v1 > v2, 2 if equal
+  version_compare "$current_version" "$latest_version"
+  cmp_result=$?
+
+  if [ "$cmp_result" -eq 2 ]; then
+    log "already at latest version: $current_version"
+    return "$EXIT_OK"
+  elif [ "$cmp_result" -eq 1 ]; then
+    log "warning: current version is newer than latest (unexpected for GitHub tags)"
+  fi
+
+  log "current version:  $current_version"
+  log "latest version:   $latest_version"
+
+  # Prompt for confirmation
+  if [ "$skip_confirm" = true ]; then
+    log "updating to latest version (--yes specified)"
+  elif [ -t 0 ]; then
+    printf "update to %s? [Y/n] " "$latest_version"
+    read -r response
+    case "$response" in
+      [yY]|[yY][eE][sS])
+        log "updating bundle..."
+        ;;
+      *)
+        log "update cancelled"
+        return "$EXIT_OK"
+        ;;
+    esac
+  else
+    err "cannot prompt for confirmation (not a TTY). Use --yes flag."
+    return "$EXIT_ERR"
+  fi
+
+  # Re-run bundle apply with latest version
+  cmd_bundle_apply "$source_id" --version "$latest_version"
+  return $?
 }
 
 # === Source Command Handlers ===
@@ -3643,6 +3792,17 @@ case "$cmd" in
           exit "$EXIT_OK"
         fi
         cmd_bundle_status "$@"
+        exit $?
+        ;;
+      update)
+        # Check for help flag first
+        if [ "$#" -gt 0 ] && case "$1" in -h|--help) true;; *) false;; esac; then
+          usage_bundle_update
+          exit "$EXIT_OK"
+        fi
+        source_id=${1:-}
+        [ "$#" -gt 0 ] && shift
+        cmd_bundle_update "$source_id" "$@"
         exit $?
         ;;
       *)
