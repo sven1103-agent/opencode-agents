@@ -2139,10 +2139,10 @@ Priority:
 - P1
 
 Status:
-- Planned
+- In Review
 
 PR:
-- TBD
+- #67
 
 Type:
 - User-facing
