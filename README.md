@@ -1,5 +1,8 @@
 # OpenCode AI Agents — Planning-First Multi-Tier Configuration
 ![GitHub Release](https://img.shields.io/github/v/release/sven1103-agent/opencode-agents)
+![Release Date](https://img.shields.io/badge/release-2026.03.27-blue)
+
+**V2 Baseline Release** - 2026.03.27
 
 Drop-in OpenCode agent configs that route work through schema-validated JSON handoff artifacts before planning, execution, and review. The goal is fewer ambiguous changes, less rework, and tighter safety boundaries with a small, explicit contract between agents.
 

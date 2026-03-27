@@ -20,9 +20,59 @@ The goal is to keep the main PRD focused on product contract and traceability wh
 
 | Status | Count | Legend |
 |--------|-------|--------|
-| ✅ Merged | 6 | Completed and merged to main |
+| ✅ Merged | 14 | Completed and merged to main |
 | 🔄 In Progress | 0 | Currently being implemented |
-| ⏳ Open | 8 | Not yet started |
+| ⏳ Open | 0 | Not yet started |
+
+---
+
+## V2 Baseline Release - 2026.03.27
+
+**Release Date**: 2026-03-27
+
+This is the initial V2 baseline release with full config-source management support.
+
+### Included Stories
+
+| # | Story | PR |
+|---|-------|-----|
+| 1 | US-032 - Publish a deterministic bundle manifest | #49, #50 |
+| 2 | US-036 - Self-update preserves legacy V1 setups | #52 |
+| 3 | US-026 - Discover presets from registered sources | #54 |
+| 4 | US-033 - Register a local directory as config source | #55 |
+| 5 | US-027 - List available presets from registered sources | #56 |
+| 6 | US-028 - Apply preset from registered source to project | #57 |
+| 7 | US-029 - Materialize referenced prompt files | (via US-028) |
+| 8 | US-034 - Register a local tarball as config source | #62 |
+| 9 | US-038 - Surface source capabilities consistently | #63 |
+| 10 | US-035 - GitHub release bundle source support | #64 |
+| 11 | US-039 - Verify remote bundle integrity | #65 |
+| 12 | US-030 - Show provenance for applied bundles | #66 |
+| 13 | US-031 - Prompt before bundle updates | #67 |
+| 14 | US-037 - Legacy config migration | #68 |
+
+### New Features
+
+- **Config Source Management**: Register local directories, tarballs, or GitHub releases as config sources
+- **Bundle Commands**: `bundle apply`, `bundle status`, `bundle update`
+- **GitHub Integration**: Register and apply bundles from GitHub releases with version selection
+- **Integrity Verification**: SHA256 checksums verify remote bundles before apply
+- **Provenance Tracking**: Track which source/version was applied to each project
+- **Update Prompts**: Confirmation required before updating bundles
+- **Legacy Migration**: Explicit migration path from V1 to V2
+
+### Upgrade from V1
+
+```sh
+# Update CLI to V2
+opencode-helper self-update
+
+# Or fresh install
+curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh
+
+# For existing V1 projects, migration is optional
+opencode-helper migrate legacy-config --project-root ./myproject
+```
 
 ---
 
