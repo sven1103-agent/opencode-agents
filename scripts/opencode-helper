@@ -280,6 +280,7 @@ Commands:
   source list                   List registered config sources
   source remove <id>            Unregister a config source
   bundle apply <source-id>      Apply a preset from a config bundle
+  bundle status                 Show provenance for applied bundle
   validate                      Verify setup health and detect drift
   version                       Show CLI version and bundled asset identity
 
@@ -1162,6 +1163,22 @@ Examples:
 EOF
 }
 
+usage_bundle_status() {
+  cat <<EOF
+bundle status - show provenance for applied bundle
+
+Usage:
+  $(command_name) bundle status [--project-root PATH]
+
+Options:
+  --project-root PATH   Project root (default: current directory)
+
+Examples:
+  $(command_name) bundle status
+  $(command_name) bundle status --project-root ./myproject
+EOF
+}
+
 # === Bundle Apply Functions ===
 
 # Resolve a source ID to its type and location from the registry
@@ -1736,6 +1753,59 @@ cmd_bundle_apply() {
 
   # Cleanup extracted tarball
   [ "$resolved_source_type" = "local-tarball" ] && rm -rf "$tmp_extract"
+
+  return "$EXIT_OK"
+}
+
+# Bundle status command - reads provenance and displays bundle information
+cmd_bundle_status() {
+  project_root=$PWD
+
+  # Parse arguments
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --project-root)
+        [ "$#" -ge 2 ] || { err "--project-root requires PATH"; return "$EXIT_ERR"; }
+        project_root=$2
+        shift 2
+        ;;
+      -h|--help)
+        usage_bundle_status
+        return "$EXIT_OK"
+        ;;
+      *)
+        err "unknown option: $1"
+        usage_bundle_status
+        return "$EXIT_ERR"
+        ;;
+    esac
+  done
+
+  provenance_file="$project_root/.opencode/bundle-provenance.json"
+
+  if [ ! -f "$provenance_file" ]; then
+    err "no provenance file found: $provenance_file"
+    err "run 'bundle apply' first to apply a bundle"
+    return "$EXIT_MISSING"
+  fi
+
+  # Read and display provenance information
+  # Using awk for simple JSON parsing (no jq dependency)
+  source_id=$(awk -F '"' '/"source_id"[[:space:]]*:/ {print $4; exit}' "$provenance_file")
+  source_name=$(awk -F '"' '/"source_name"[[:space:]]*:/ {print $4; exit}' "$provenance_file")
+  source_type=$(awk -F '"' '/"source_type"[[:space:]]*:/ {print $4; exit}' "$provenance_file")
+  bundle_version=$(awk -F '"' '/"bundle_version"[[:space:]]*:/ {print $4; exit}' "$provenance_file")
+  preset_name=$(awk -F '"' '/"preset_name"[[:space:]]*:/ {print $4; exit}' "$provenance_file")
+  applied_at=$(awk -F '"' '/"applied_at"[[:space:]]*:/ {print $4; exit}' "$provenance_file")
+
+  # Display the information
+  log "Bundle Provenance:"
+  printf "  source_id:      %s\n" "$source_id"
+  printf "  source_name:    %s\n" "$source_name"
+  printf "  source_type:    %s\n" "$source_type"
+  printf "  bundle_version: %s\n" "$bundle_version"
+  printf "  preset_name:    %s\n" "$preset_name"
+  printf "  applied_at:     %s\n" "$applied_at"
 
   return "$EXIT_OK"
 }
@@ -3564,6 +3634,15 @@ case "$cmd" in
         source_id=${1:-}
         [ "$#" -gt 0 ] && shift
         cmd_bundle_apply "$source_id" "$@"
+        exit $?
+        ;;
+      status)
+        # Check for help flag first
+        if [ "$#" -gt 0 ] && case "$1" in -h|--help) true;; *) false;; esac; then
+          usage_bundle_status
+          exit "$EXIT_OK"
+        fi
+        cmd_bundle_status "$@"
         exit $?
         ;;
       *)
