@@ -90,7 +90,7 @@ Primary stories:
 Implementation:
 - `US-027`: ✅ Merged via [PR #56](https://github.com/sven1103/opencode-agents/pull/56)
 - `US-028`: ✅ Merged via [PR #57](https://github.com/sven1103/opencode-agents/pull/57)
-- `US-029`: ⏳ Open - Not yet implemented
+- `US-029`: ✅ Done - Verified working (implemented in US-028)
 
 Why here:
 - Discovery validates that manifest parsing, source identity, and registry state all work together.
