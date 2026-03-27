@@ -940,7 +940,25 @@ github_fetch_release_info() {
   printf 'asset_url:%s\n' "$asset_url"
   printf 'asset_name:%s\n' "$asset_name"
   
+  # Find checksums file if present (e.g., <bundle-name>-checksums.txt)
+  checksums_url=$(awk -F '"' -v base="${asset_url%.tar.gz}" '/browser_download_url.*-checksums\.txt/ {print $4; exit}' "$tmp_json")
+  if [ -n "$checksums_url" ]; then
+    printf 'checksums_url:%s\n' "$checksums_url"
+  fi
+  
+  rm -f "$tmp_json"
+  
   return "$EXIT_OK"
+}
+
+# Compute SHA256 of a file
+github_sha256_file() {
+  file=$1
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$file" | awk '{print $1}'
+  else
+    shasum -a 256 "$file" | awk '{print $1}'
+  fi
 }
 
 # Download and cache a GitHub release bundle
@@ -962,6 +980,7 @@ github_download_bundle() {
   asset_url=$(printf '%s\n' "$release_info" | awk -F ':' '/^asset_url:/ {for(i=2;i<=NF;i++) printf "%s", $i; print ""; exit}')
   asset_name=$(printf '%s\n' "$release_info" | awk -F ':' '/^asset_name:/ {for(i=2;i<=NF;i++) printf "%s", $i; print ""; exit}')
   tag_name=$(printf '%s\n' "$release_info" | awk -F ':' '/^tag:/ {for(i=2;i<=NF;i++) printf "%s", $i; print ""; exit}')
+  checksums_url=$(printf '%s\n' "$release_info" | awk -F ':' '/^checksums_url:/ {for(i=2;i<=NF;i++) printf "%s", $i; print ""; exit}')
   
   # Check cache first
   cached_tarball=$(github_cache_path "$github_repo" "$tag_name").tar.gz
@@ -992,6 +1011,21 @@ github_download_bundle() {
       rm -rf "$cached_extract"
       return "$EXIT_ERR"
     }
+    # Download checksums file if available
+    if [ -n "$checksums_url" ]; then
+      checksums_file=$(mktemp "${TMPDIR:-/tmp}/opencode-helper-checksums.XXXXXX") || {
+        err "failed to create temp file for checksums"
+        rm -f "$cached_tarball"
+        rm -rf "$cached_extract"
+        return "$EXIT_ERR"
+      }
+      curl -fsSL --max-time 30 "$checksums_url" -o "$checksums_file" || {
+        err "failed to download checksums file (network timeout or error)"
+        rm -f "$cached_tarball" "$checksums_file"
+        rm -rf "$cached_extract"
+        return "$EXIT_ERR"
+      }
+    fi
   elif command -v wget >/dev/null 2>&1; then
     wget -q -T 60 -O "$cached_tarball" "$asset_url" || {
       err "failed to download bundle (network timeout or error)"
@@ -999,11 +1033,55 @@ github_download_bundle() {
       rm -rf "$cached_extract"
       return "$EXIT_ERR"
     }
+    # Download checksums file if available
+    if [ -n "$checksums_url" ]; then
+      checksums_file=$(mktemp "${TMPDIR:-/tmp}/opencode-helper-checksums.XXXXXX") || {
+        err "failed to create temp file for checksums"
+        rm -f "$cached_tarball"
+        rm -rf "$cached_extract"
+        return "$EXIT_ERR"
+      }
+      wget -q -T 30 -O "$checksums_file" "$checksums_url" || {
+        err "failed to download checksums file (network timeout or error)"
+        rm -f "$cached_tarball" "$checksums_file"
+        rm -rf "$cached_extract"
+        return "$EXIT_ERR"
+      }
+    fi
   else
     err "missing downloader: require curl or wget"
     return "$EXIT_ERR"
   fi
-  
+   
+  # Verify bundle integrity if checksums file is available
+  if [ -n "$checksums_file" ] && [ -f "$checksums_file" ]; then
+    # Extract expected SHA256 for the bundle from checksums file
+    expected_sha=$(awk -v wanted="$asset_name" '$2==wanted {print $1; found=1; exit} END {if (!found) exit 1}' "$checksums_file") || {
+      err "checksums file missing entry for: $asset_name"
+      rm -f "$cached_tarball" "$checksums_file"
+      rm -rf "$cached_extract"
+      return "$EXIT_ERR"
+    }
+    
+    # Compute actual SHA256 of downloaded bundle
+    actual_sha=$(github_sha256_file "$cached_tarball") || {
+      err "failed to compute SHA256 of downloaded bundle"
+      rm -f "$cached_tarball" "$checksums_file"
+      rm -rf "$cached_extract"
+      return "$EXIT_ERR"
+    }
+    
+    if [ "$actual_sha" != "$expected_sha" ]; then
+      err "bundle integrity check failed: SHA256 mismatch for $asset_name"
+      rm -f "$cached_tarball" "$checksums_file"
+      rm -rf "$cached_extract"
+      return "$EXIT_ERR"
+    fi
+    
+    log "verified SHA-256 for $asset_name"
+    rm -f "$checksums_file"
+  fi
+   
   # Extract to cache
   mkdir -p "$cached_extract" || {
     err "failed to create cache extract directory"
