@@ -115,7 +115,7 @@ Primary stories:
 - `US-034` - Install and apply a bundle from a local archive
 
 Implementation:
-- `US-034`: ⏳ Open - Not yet implemented
+- `US-034`: ✅ Done - PR #62
 
 Why here:
 - Local archives are a natural next step after local directories.
@@ -211,7 +211,7 @@ Legacy migration path:
 | 5 | `US-027` | ✅ Merged | PR #56 |
 | 6 | `US-028` | ✅ Merged | PR #57 |
 | 7 | `US-029` | ⏳ Open | - |
-| 8 | `US-034` | ⏳ Open | - |
+| 8 | `US-034` | ✅ Merged | PR #62 |
 | 9 | `US-038` | ⏳ Open | - |
 | 10 | `US-035` | ⏳ Open | - |
 | 11 | `US-039` | ⏳ Open | - |
