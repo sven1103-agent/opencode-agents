@@ -716,8 +716,54 @@ source_validate_manifest() {
       fi
       ;;
     github-release)
-      # Placeholder - would need network access to fetch manifest
-      # For now, skip manifest validation for github sources
+      # Validate GitHub repo exists and has at least one release with a bundle asset
+      github_repo=$(echo "$location" | sed 's/^github://')
+      api_url="https://api.github.com/repos/$github_repo/releases/latest"
+      
+      tmp_json=$(mktemp "${TMPDIR:-/tmp}/opencode-helper-github-validate.XXXXXX") || return "$EXIT_ERR"
+      if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "$api_url" -o "$tmp_json" 2>/dev/null || {
+          rm -f "$tmp_json"
+          err "failed to fetch release info from GitHub: $github_repo"
+          return "$EXIT_ERR"
+        }
+      elif command -v wget >/dev/null 2>&1; then
+        wget -q -O "$tmp_json" "$api_url" 2>/dev/null || {
+          rm -f "$tmp_json"
+          err "failed to fetch release info from GitHub: $github_repo"
+          return "$EXIT_ERR"
+        }
+      else
+        rm -f "$tmp_json"
+        err "missing downloader: require curl or wget"
+        return "$EXIT_ERR"
+      fi
+      
+      # Check if we got a valid response (not a 404)
+      if grep -q '"message"[[:space:]]*:' "$tmp_json" 2>/dev/null; then
+        msg=$(awk -F '"' '/"message"[[:space:]]*:/ {print $4; exit}' "$tmp_json")
+        if [ -n "$msg" ]; then
+          rm -f "$tmp_json"
+          err "GitHub API error: $msg"
+          return "$EXIT_ERR"
+        fi
+      fi
+      
+      # Check for tag_name to verify it's a valid release
+      if ! grep -q '"tag_name"' "$tmp_json" 2>/dev/null; then
+        rm -f "$tmp_json"
+        err "no releases found for GitHub repo: $github_repo"
+        return "$EXIT_MISSING"
+      fi
+      
+      # Check for bundle asset (.tar.gz)
+      if ! grep -q '\.tar\.gz' "$tmp_json" 2>/dev/null; then
+        rm -f "$tmp_json"
+        err "no bundle asset (.tar.gz) found in latest release"
+        return "$EXIT_MISSING"
+      fi
+      
+      rm -f "$tmp_json"
       return "$EXIT_OK"
       ;;
     *)
@@ -727,7 +773,7 @@ source_validate_manifest() {
   esac
 
   # Validate manifest structure
-  if [ "$source_type" != "local-tarball" ]; then
+  if [ "$source_type" != "local-tarball" ] && [ "$source_type" != "github-release" ]; then
     full_manifest_path="$manifest_path"
   fi
 
@@ -787,6 +833,188 @@ source_resolve_location() {
       printf '%s\n' "$location"
       ;;
   esac
+}
+
+# === GitHub Release Cache Functions ===
+
+# Get the cache directory for GitHub release bundles
+github_cache_dir() {
+  cache_base="${OPENCODE_HELPER_CACHE_DIR:-$HOME/.cache/opencode-helper}"
+  printf '%s\n' "$cache_base/github-releases"
+}
+
+# Get the path to a cached bundle for a given repo and tag
+github_cache_path() {
+  github_repo=$1
+  tag=$2
+  
+  cache_dir=$(github_cache_dir)
+  # Sanitize repo name for filesystem
+  safe_repo=$(echo "$github_repo" | tr '/' '-')
+  printf '%s/%s-%s\n' "$cache_dir" "$safe_repo" "$tag"
+}
+
+# Fetch release info from GitHub API and find the bundle asset URL
+# Args: github_repo tag (use "latest" for latest release)
+# Returns: prints tag:, asset_url:, asset_name:
+github_fetch_release_info() {
+  github_repo=$1
+  tag=${2:-latest}
+  
+  api_url="https://api.github.com/repos/$github_repo/releases"
+  if [ "$tag" = "latest" ]; then
+    api_url="$api_url/latest"
+  else
+    api_url="$api_url/tags/$tag"
+  fi
+  
+  tmp_json=$(mktemp "${TMPDIR:-/tmp}/opencode-helper-github-release.XXXXXX") || return "$EXIT_ERR"
+  
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$api_url" -o "$tmp_json" 2>/dev/null || {
+      rm -f "$tmp_json"
+      err "failed to fetch release info from GitHub: $github_repo"
+      return "$EXIT_ERR"
+    }
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q -O "$tmp_json" "$api_url" 2>/dev/null || {
+      rm -f "$tmp_json"
+      err "failed to fetch release info from GitHub: $github_repo"
+      return "$EXIT_ERR"
+    }
+  else
+    rm -f "$tmp_json"
+    err "missing downloader: require curl or wget"
+    return "$EXIT_ERR"
+  fi
+  
+  # Check for error response
+  if grep -q '"message"[[:space:]]*:' "$tmp_json" 2>/dev/null; then
+    msg=$(awk -F '"' '/"message"[[:space:]]*:/ {print $4; exit}' "$tmp_json")
+    if [ -n "$msg" ]; then
+      rm -f "$tmp_json"
+      err "GitHub API error: $msg"
+      return "$EXIT_ERR"
+    fi
+  fi
+  
+  # Get tag_name
+  tag_name=$(awk -F '"' '/"tag_name"[[:space:]]*:/ {print $4; exit}' "$tmp_json")
+  if [ -z "$tag_name" ]; then
+    rm -f "$tmp_json"
+    err "failed to parse tag_name from release"
+    return "$EXIT_ERR"
+  fi
+  
+  # Find the .tar.gz asset
+  asset_url=$(awk -F '"' '/browser_download_url.*\.tar\.gz/ {print $4; exit}' "$tmp_json")
+  if [ -z "$asset_url" ]; then
+    rm -f "$tmp_json"
+    err "no bundle asset (.tar.gz) found in release $tag_name"
+    return "$EXIT_MISSING"
+  fi
+  
+  # Extract the asset name from the URL
+  asset_name=$(basename "$asset_url")
+  
+  rm -f "$tmp_json"
+  
+  printf 'tag:%s\n' "$tag_name"
+  printf 'asset_url:%s\n' "$asset_url"
+  printf 'asset_name:%s\n' "$asset_name"
+  
+  return "$EXIT_OK"
+}
+
+# Download and cache a GitHub release bundle
+# Args: github_repo tag
+# Returns: sets cached_bundle_path
+github_download_bundle() {
+  github_repo=$1
+  tag=${2:-latest}
+  
+  cache_dir=$(github_cache_dir)
+  mkdir -p "$cache_dir" || {
+    err "failed to create cache directory: $cache_dir"
+    return "$EXIT_ERR"
+  }
+  
+  # Get release info
+  release_info=$(github_fetch_release_info "$github_repo" "$tag") || return $?
+  
+  asset_url=$(printf '%s\n' "$release_info" | awk -F ':' '/^asset_url:/ {for(i=2;i<=NF;i++) printf "%s", $i; print ""; exit}')
+  asset_name=$(printf '%s\n' "$release_info" | awk -F ':' '/^asset_name:/ {for(i=2;i<=NF;i++) printf "%s", $i; print ""; exit}')
+  tag_name=$(printf '%s\n' "$release_info" | awk -F ':' '/^tag:/ {for(i=2;i<=NF;i++) printf "%s", $i; print ""; exit}')
+  
+  # Check cache first
+  cached_tarball=$(github_cache_path "$github_repo" "$tag_name").tar.gz
+  cached_extract=$(github_cache_path "$github_repo" "$tag_name")
+  
+  if [ -d "$cached_extract" ]; then
+    log "using cached bundle for $github_repo:$tag_name"
+    cached_bundle_path="$cached_tarball"
+    return "$EXIT_OK"
+  fi
+  
+  # Download the bundle
+  log "downloading bundle from GitHub: $github_repo:$tag_name"
+  
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$asset_url" -o "$cached_tarball" || {
+      err "failed to download bundle"
+      rm -f "$cached_tarball"
+      return "$EXIT_ERR"
+    }
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q -O "$cached_tarball" "$asset_url" || {
+      err "failed to download bundle"
+      rm -f "$cached_tarball"
+      return "$EXIT_ERR"
+    }
+  else
+    err "missing downloader: require curl or wget"
+    return "$EXIT_ERR"
+  fi
+  
+  # Extract to cache
+  mkdir -p "$cached_extract" || {
+    err "failed to create cache extract directory"
+    rm -f "$cached_tarball"
+    return "$EXIT_ERR"
+  }
+  
+  if ! tar -xzf "$cached_tarball" -C "$cached_extract" 2>/dev/null; then
+    err "failed to extract bundle"
+    rm -f "$cached_tarball"
+    rm -rf "$cached_extract"
+    return "$EXIT_ERR"
+  fi
+  
+  # Determine the bundle root inside the extracted archive
+  # Look for the directory containing opencode-bundle.manifest.json
+  bundle_root=$(find "$cached_extract" -mindepth 1 -maxdepth 2 -name "opencode-bundle.manifest.json" -exec dirname {} \; | head -1)
+  
+  if [ -z "$bundle_root" ]; then
+    err "bundle manifest not found in downloaded archive"
+    rm -f "$cached_tarball"
+    rm -rf "$cached_extract"
+    return "$EXIT_ERR"
+  fi
+  
+  # If there's a single top-level directory, use that as the root
+  top_level_count=$(find "$cached_extract" -mindepth 1 -maxdepth 1 | wc -l)
+  top_level_dirs=$(find "$cached_extract" -mindepth 1 -maxdepth 1 -type d)
+  top_level_dir_count=$(echo "$top_level_dirs" | wc -l)
+  
+  if [ "$top_level_dir_count" -eq 1 ]; then
+    # Move contents up one level
+    inner_dir=$(echo "$top_level_dirs" | head -1)
+    mv "$inner_dir"/* "$cached_extract/" 2>/dev/null || true
+    rmdir "$inner_dir" 2>/dev/null || true
+  fi
+  
+  cached_bundle_path="$cached_tarball"
+  return "$EXIT_OK"
 }
 
 # Check if a source ID already exists in the registry
@@ -908,11 +1136,13 @@ bundle_resolve_source() {
 # Normalize a source to a local bundle root directory
 # For local-dir: returns the path as-is
 # For local-tarball: extracts to temp dir and returns extracted path
-# For github-release: placeholder that returns error in V2 baseline
+# For github-release: downloads from GitHub releases and caches locally
+# Args: source_type source_location [version_tag]
 # Returns: sets bundle_root (the local root path)
 bundle_resolve_to_local() {
   source_type=$1
   source_location=$2
+  version_tag=${3:-latest}
 
   case "$source_type" in
     local-dir)
@@ -971,8 +1201,22 @@ bundle_resolve_to_local() {
       # Extract will be cleaned up by the caller
       ;;
     github-release)
-      err "github-release sources not yet supported"
-      return "$EXIT_ERR"
+      # source_location is owner/repo format (or github:owner/repo)
+      github_repo=$(echo "$source_location" | sed 's/^github://')
+      
+      # Download (or use cached) bundle from GitHub
+      github_download_bundle "$github_repo" "$version_tag" || return $?
+      
+      # Get the tag from the cached bundle
+      release_info=$(github_fetch_release_info "$github_repo" "$version_tag") || return $?
+      tag_name=$(printf '%s\n' "$release_info" | awk -F ':' '/^tag:/ {for(i=2;i<=NF;i++) printf "%s", $i; print ""; exit}')
+      
+      bundle_root=$(github_cache_path "$github_repo" "$tag_name")
+      
+      if [ ! -d "$bundle_root" ]; then
+        err "failed to get cached bundle root: $bundle_root"
+        return "$EXIT_ERR"
+      fi
       ;;
     *)
       err "unknown source type: $source_type"
@@ -1333,7 +1577,12 @@ cmd_bundle_apply() {
   fi
 
   # Resolve to local bundle root (may extract tarball)
-  bundle_resolve_to_local "$resolved_source_type" "$resolved_source_location" || return $?
+  # For github-release, pass the version tag if specified
+  if [ "$resolved_source_type" = "github-release" ]; then
+    bundle_resolve_to_local "$resolved_source_type" "$resolved_source_location" "$bundle_version" || return $?
+  else
+    bundle_resolve_to_local "$resolved_source_type" "$resolved_source_location" || return $?
+  fi
   bundle_root=$bundle_root
 
   # Read manifest from bundle root
@@ -2015,8 +2264,26 @@ cmd_preset_list_sources() {
           manifest_path="$tmp_extract/$manifest_filename"
           ;;
         github-release)
-          printf "warn: source '%s' (ID: %s) excluded - reason: GitHub release sources not yet supported\n" "$source_name" "$source_id" >> "$validation_errors_file"
-          continue
+          # Download (or use cached) bundle from GitHub
+          github_repo=$(echo "$location" | sed 's/^github://')
+          
+          # Get release info first to get the tag
+          release_info=$(github_fetch_release_info "$github_repo" "latest") || {
+            printf "warn: source '%s' (ID: %s) excluded - reason: failed to fetch release info from GitHub\n" "$source_name" "$source_id" >> "$validation_errors_file"
+            continue
+          }
+          
+          tag_name=$(printf '%s\n' "$release_info" | awk -F ':' '/^tag:/ {for(i=2;i<=NF;i++) printf "%s", $i; print ""; exit}')
+          
+          # Download the bundle to cache
+          github_download_bundle "$github_repo" "$tag_name" || {
+            printf "warn: source '%s' (ID: %s) excluded - reason: failed to download bundle from GitHub\n" "$source_name" "$source_id" >> "$validation_errors_file"
+            continue
+          }
+          
+          # Get the cached bundle root
+          bundle_root=$(github_cache_path "$github_repo" "$tag_name")
+          manifest_path="$bundle_root/opencode-bundle.manifest.json"
           ;;
         *)
           printf "warn: source '%s' (ID: %s) excluded - reason: unknown source type '%s'\n" "$source_name" "$source_id" "$source_type" >> "$validation_errors_file"
