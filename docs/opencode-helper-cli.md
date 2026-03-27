@@ -2332,7 +2332,7 @@ Priority:
 - P1
 
 Status:
-- In Review
+- Done
 
 PR:
 - #68

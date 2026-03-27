@@ -169,7 +169,7 @@ Primary stories:
 Implementation:
 - `US-030`: ✅ Merged (PR #66)
 - `US-031`: ✅ Merged (PR #67)
-- `US-037`: 🔄 In Review (PR #68)
+- `US-037`: ✅ Merged (PR #68)
 
 Why here:
 - `bundle status` can now read provenance written by the apply flow.
@@ -217,7 +217,7 @@ Legacy migration path:
 | 11 | `US-039` | ✅ Merged | PR #65 |
 | 12 | `US-030` | ✅ Merged | PR #66 |
 | 13 | `US-031` | ✅ Merged | PR #67 |
-| 14 | `US-037` | 🔄 In Review | PR #68 |
+| 14 | `US-037` | ✅ Merged | PR #68 |
 
 ## Notes
 
