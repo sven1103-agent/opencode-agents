@@ -10,8 +10,8 @@ import (
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
-	Long:  `Print the version information for opencode-helper.`,
+	Long:  `Print the version information for oc.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("opencode-helper %s\n", version.Version)
+		fmt.Printf("oc %s\n", version.Version)
 	},
 }

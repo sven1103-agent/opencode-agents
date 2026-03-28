@@ -12,13 +12,14 @@ var versionFlag bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "opencode-helper",
-	Short: "OpenCode Helper CLI - Manage OpenCode configurations",
-	Long: `OpenCode Helper CLI helps manage OpenCode configurations,
-including presets, sources, and bundle operations.`,
+	Use:   "oc",
+	Short: "oc - OpenCode configuration manager",
+	Long: `oc is the OpenCode configuration manager CLI.
+
+Manage OpenCode configurations, including presets, sources, and bundle operations.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if versionFlag {
-			fmt.Printf("opencode-helper %s\n", version.Version)
+			fmt.Printf("oc %s\n", version.Version)
 			os.Exit(0)
 		}
 		cmd.Help()
