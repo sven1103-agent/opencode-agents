@@ -21,7 +21,7 @@ The goal is to migrate from bash to Go for better JSON handling, testability, an
 | Status | Count | Legend |
 |--------|-------|--------|
 | 🔄 In Progress | 1 | Currently being implemented |
-| ⏳ Open | 11 | Not yet started |
+| ⏳ Open | 10 | Not yet started |
 
 ---
 
@@ -40,8 +40,8 @@ Primary stories:
 - `US-041` - Add GitHub Actions CI
 
 Implementation:
-- `US-040`: 🔄 In Progress (PR #83)
-- `US-041`: ⏳ Open
+- `US-040`: ✅ Done (merged PR #83)
+- `US-041`: 🔄 In Progress (PR #84)
 
 Why first:
 - Foundation must be solid before implementing commands
@@ -172,8 +172,8 @@ Polish depends on extended:
 
 | # | Story | Status | Description |
 |---|-------|--------|-------------|
-| 1 | `US-040` | 🔄 In Progress | Set up Go project structure (PR #83) |
-| 2 | `US-041` | ⏳ Open | Add GitHub Actions CI |
+ | 1 | `US-040` | ✅ Done | Set up Go project structure (PR #83) |
+ | 2 | `US-041` | 🔄 In Progress | Add GitHub Actions CI (PR #84) |
 | 3 | `US-042` | ⏳ Open | Implement init command |
 | 4 | `US-043` | ⏳ Open | Implement preset list/use |
 | 5 | `US-044` | ⏳ Open | Implement schema install/validate |
