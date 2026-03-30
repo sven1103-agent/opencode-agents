@@ -193,10 +193,11 @@ schema_install_local() {
 
 schema_inspect_root() {
   root=$1
-  manifest="$root/install-manifest.tsv"
+  install_root="$root/.opencode"
+  manifest="$install_root/install-manifest.tsv"
 
   if [ ! -f "$manifest" ]; then
-    if [ -e "$root/$(schema_rel_path handoff)" ] || [ -e "$root/$(schema_rel_path result)" ]; then
+    if [ -e "$install_root/$(schema_rel_path handoff)" ] || [ -e "$install_root/$(schema_rel_path result)" ]; then
       err "drift: schema files present without manifest in $root"
       return "$EXIT_DRIFT"
     fi
@@ -210,7 +211,7 @@ schema_inspect_root() {
 
   while IFS=$(printf '\t') read -r type rel meta; do
     [ -z "${type:-}" ] && continue
-    path="$root/$rel"
+    path="$install_root/$rel"
 
     [ "$rel" = "schemas/handoff.schema.json" ] && found_handoff=1
     [ "$rel" = "schemas/result.schema.json" ] && found_result=1
@@ -294,6 +295,7 @@ Commands:
   preset use <name>             Apply a preset to output path
   release use <tag>             Switch to an already installed release
   schema install                Install schemas into project
+  schema validate               Validate installed schemas
   self-update                   Update helper to latest release
   source add <location>         Register a config source
   source list                   List registered config sources
@@ -439,6 +441,18 @@ schema install - copy bundled handoff and result schemas into the project
 
 Usage:
   $(command_name) schema install [--project-root PATH] [--dry-run]
+EOF
+}
+
+usage_schema_validate() {
+  cat <<EOF
+schema validate - verify installed schemas match manifest and checksums
+
+Usage:
+  $(command_name) schema validate [--project-root PATH]
+
+Options:
+  --project-root PATH   Target project root (default: current directory)
 EOF
 }
 
@@ -2871,6 +2885,12 @@ cmd_schema_install() {
   schema_install_local "$project_root" 0 "$dry_run"
 }
 
+cmd_schema_validate() {
+  project_root=$1
+
+  schema_inspect_root "$project_root"
+}
+
 read_manifest_value() {
   manifest_path=$1
   wanted=$2
@@ -2945,7 +2965,7 @@ cmd_validate() {
     return "$EXIT_DRIFT"
   fi
 
-  schema_inspect_root "$project_root/.opencode" || return $?
+  schema_inspect_root "$project_root" || return $?
 
   # Check for legacy V1 setup and warn (but don't fail)
   detect_legacy_setup "$project_root"
@@ -3938,6 +3958,17 @@ case "$cmd" in
         fi
         [ "$rc" -eq 0 ] || exit "$rc"
         cmd_schema_install "$project_root" "$dry_run"
+        exit $?
+        ;;
+      validate)
+        parse_common_flags "$@"
+        rc=$?
+        if [ "$rc" -eq 10 ]; then
+          usage_schema_validate
+          exit "$EXIT_OK"
+        fi
+        [ "$rc" -eq 0 ] || exit "$rc"
+        cmd_schema_validate "$project_root"
         exit $?
         ;;
       *)
