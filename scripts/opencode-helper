@@ -295,6 +295,7 @@ Commands:
   release use <tag>             Switch to an already installed release
   schema install                Install schemas into project
   self-update                   Update helper to latest release
+  update                         Check for newer version and suggest upgrade
   source add <location>         Register a config source
   source list                   List registered config sources
   source remove <id>            Unregister a config source
@@ -400,6 +401,20 @@ Notes:
   - Preserves existing INSTALL_HOME and BIN_DIR locations
   - Keeps previous releases for rollback via 'release use'
   - Requires write access to INSTALL_HOME/releases and BIN_DIR
+EOF
+}
+
+usage_update() {
+  cat <<EOF
+update - check for newer version and suggest package manager upgrade
+
+Usage:
+  $(command_name) update
+
+Notes:
+  - Requires network access to check GitHub for latest release
+  - Does NOT perform the update - use 'self-update' or your package manager
+  - Shows current version, latest version, and upgrade instructions
 EOF
 }
 
@@ -3708,6 +3723,80 @@ cmd_self_update() {
   return "$EXIT_OK"
 }
 
+# === Update Command ===
+# Lightweight check for newer version - suggests package manager upgrade
+
+cmd_update() {
+  # Check for help flag
+  for arg in "$@"; do
+    case "$arg" in
+      -h|--help) usage_update; return "$EXIT_OK" ;;
+    esac
+  done
+
+  # Detect installation context
+  if ! install_home=$(selfupdate_detect_install_home) 2>/dev/null; then
+    # Not installed via bundle - check if we can determine version from environment
+    log "Current version: $HELPER_VERSION"
+    log ""
+    log "Note: This appears to be a development or direct installation."
+    log "To check for updates, visit: https://github.com/sven1103-agent/opencode-helper/releases"
+    return "$EXIT_OK"
+  fi
+
+  # Get current release tag
+  current_tag=$(selfupdate_get_current_release_tag "$install_home") || current_tag="unknown"
+
+  # Fetch latest release info
+  workdir=$(mktemp -d "${TMPDIR:-/tmp}/opencode-helper-check-update.XXXXXX") || {
+    err "failed to create temporary work directory"
+    return "$EXIT_ERR"
+  }
+  trap "rm -rf $workdir" EXIT INT TERM
+
+  # Try to fetch latest tag
+  latest_tag=$(selfupdate_fetch_latest_tag "$workdir") || {
+    log "Current version: $current_tag"
+    log ""
+    err "Failed to check for updates. Please visit: https://github.com/sven1103-agent/opencode-helper/releases"
+    return "$EXIT_ERR"
+  }
+
+  # Compare versions
+  log "Current version: $current_tag"
+  log "Latest version:  $latest_tag"
+  log ""
+
+  # Use version_compare function to check if update available
+  version_compare "$current_tag" "$latest_tag"
+  cmp_result=$?
+
+  if [ "$cmp_result" -eq 2 ]; then
+    # Equal - already up to date
+    log "You are running the latest version."
+    return "$EXIT_OK"
+  elif [ "$cmp_result" -eq 0 ]; then
+    # Current < Latest - update available
+    log "A new version is available!"
+    log ""
+    log "To upgrade, use one of the following methods:"
+    log ""
+    log "  Homebrew:"
+    log "    brew upgrade opencode-helper"
+    log ""
+    log "  Or reinstall using the install script:"
+    log "    curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh"
+    log ""
+    log "  Or use self-update (if installed via bundle):"
+    log "    opencode-helper self-update"
+    return "$EXIT_OK"
+  else
+    # Current > Latest - weird state, but ok
+    log "You are running a pre-release or development version."
+    return "$EXIT_OK"
+  fi
+}
+
 parse_common_flags() {
   project_root=$PWD
   preset_name=mixed
@@ -3947,6 +4036,10 @@ case "$cmd" in
     ;;
   self-update)
     cmd_self_update "$@"
+    exit $?
+    ;;
+  update)
+    cmd_update "$@"
     exit $?
     ;;
   source)
