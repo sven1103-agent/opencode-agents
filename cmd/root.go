@@ -22,7 +22,7 @@ Manage OpenCode configurations, including presets, sources, and bundle operation
 			fmt.Printf("oc %s\n", version.Version)
 			os.Exit(0)
 		}
-		cmd.Help()
+		_ = cmd.Help()
 	},
 }
 
