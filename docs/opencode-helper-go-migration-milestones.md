@@ -21,7 +21,7 @@ The goal is to migrate from bash to Go for better JSON handling, testability, an
 | Status | Count | Legend |
 |--------|-------|--------|
 | 🔄 In Progress | 1 | Currently being implemented |
-| ⏳ Open | 9 | Not yet started |
+| ⏳ Open | 10 | Not yet started |
 
 ---
 
@@ -184,6 +184,7 @@ Polish depends on extended:
  | 10 | `US-049` | ⏳ Open | Add --interactive flag |
  | 11 | `US-050` | ⏳ Open | Set up goreleaser |
  | 12 | `US-051` | ⏳ Open | Create Homebrew tap |
+ | 13 | `US-052` | ⏳ Open | Add example config bundle as release assets |
 
 ---
 
