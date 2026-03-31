@@ -40,7 +40,7 @@ changelog:
 
 release:
   github:
-    owner: sven1103
+    owner: sven1103-agent
     name: opencode-agents
   draft: false
   prerelease: auto
