@@ -99,7 +99,7 @@ func init() {
 	bundleApplyCmd.Flags().StringVar(&bundleOutput, "output", "opencode.json", "Output file path")
 	bundleApplyCmd.Flags().BoolVar(&bundleForce, "force", false, "Overwrite existing files")
 	bundleApplyCmd.Flags().BoolVar(&bundleDryRun, "dry-run", false, "Show what would be done without doing it")
-	bundleApplyCmd.MarkFlagRequired("preset")
+	_ = bundleApplyCmd.MarkFlagRequired("preset") //nolint:errcheck
 
 	// Flags for bundle status
 	bundleStatusCmd.Flags().StringVar(&bundleProjectRoot, "project-root", ".", "Project root directory")
