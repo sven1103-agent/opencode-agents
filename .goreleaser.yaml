@@ -2,6 +2,8 @@
 # GoReleaser configuration for opencode-helper
 # https://goreleaser.com/introduction
 
+version: 2
+
 project_name: opencode-helper
 
 before:
