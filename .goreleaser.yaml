@@ -69,22 +69,6 @@ release:
   prerelease: auto
   name_template: "{{.Tag}}"
 
-brews:
-  - name: opencode-helper
-    tap:
-      owner: sven1103
-      name: homebrew-opencode-helper
-    description: OpenCode agent configuration helper CLI
-    homepage: https://github.com/sven1103/opencode-agents
-    license: AGPL-3.0
-    skip_upload: auto
-    dependencies:
-      - name: gh
-    test: |
-      system "#{bin}/opencode-helper --version"
-    install: |
-      bin.install "opencode-helper"
-
 checksum:
   name_template: "{{.ProjectName}}-{{.Version}}-checksums.txt"
   algorithm: sha256
