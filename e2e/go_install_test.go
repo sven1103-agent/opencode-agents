@@ -186,7 +186,14 @@ func createModuleZip(t *testing.T, repoRoot, zipPath, zipRoot, moduleVersion str
 			return err
 		}
 		if filepath.ToSlash(relPath) == "internal/version/version.go" {
-			data = []byte(strings.ReplaceAll(string(data), "var Version = \"0.0.0-dev\"", "var Version = \""+moduleVersion+"\""))
+			lines := strings.Split(string(data), "\n")
+			for i, line := range lines {
+				if strings.HasPrefix(line, "var Version = ") {
+					lines[i] = "var Version = \"" + moduleVersion + "\""
+					break
+				}
+			}
+			data = []byte(strings.Join(lines, "\n"))
 		}
 
 		info, err := entry.Info()
