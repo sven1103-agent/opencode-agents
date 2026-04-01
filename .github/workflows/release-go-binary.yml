@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Normalize release tag
         id: version
@@ -46,10 +48,28 @@ jobs:
           go-version: '1.21'
           cache: true
 
+      - name: Stamp version into source
+        shell: bash
+        run: |
+          tag='${{ steps.version.outputs.tag }}'
+          perl -0pi -e "s/var Version = \"[^\"]+\"/var Version = \"${tag}\"/" internal/version/version.go
+          git diff -- internal/version/version.go
+
+      - name: Commit stamped version
+        shell: bash
+        run: |
+          git add internal/version/version.go
+          if git diff --cached --quiet; then
+            echo "Version file already matches requested tag"
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "chore: stamp version ${{ steps.version.outputs.tag }}"
+          git push origin HEAD:${{ github.ref_name }}
+
       - name: Create git tag
         run: |
-          git tag -f ${{ steps.version.outputs.tag }}
-          git push origin ${{ steps.version.outputs.tag }} --force
+          git tag ${{ steps.version.outputs.tag }}
+          git push origin ${{ steps.version.outputs.tag }}
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6

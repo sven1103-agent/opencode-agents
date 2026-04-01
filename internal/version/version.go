@@ -2,5 +2,6 @@
 package version
 
 // Version is the current version of oc.
-// Set at build time via -ldflags.
+// Release automation updates this in the tagged source so `go install
+// module@version` reports the same version as release binaries.
 var Version = "0.0.0-dev"
