@@ -13,7 +13,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v5"
 )
 
-//go:embed schema.json
+//go:embed 1.0.0.schema.json
 var embeddedSchema string
 
 var schemaCompiler *jsonschema.Compiler
