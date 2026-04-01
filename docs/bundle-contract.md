@@ -25,12 +25,10 @@ Configuration bundles (like [qbicsoftware/opencode-config-bundle](https://github
 
 ### Schema (JSON Schema Draft 2020-12)
 
-The canonical schema is published at:
-```
-https://raw.githubusercontent.com/qbicsoftware/opencode-agents/1.0.0/.opencode/schemas/bundle-manifest/1.0.0.schema.json
-```
+The schema is **embedded in the CLI binary** for offline validation.
 
-**Embedded in CLI:** The schema is embedded into the `oc` CLI binary for offline validation.
+The single source of truth is `internal/bundle/1.0.0.schema.json` in the repository.
+This file is embedded into the `oc` CLI binary at build time.
 
 ```json
 {
