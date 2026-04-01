@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/qbicsoftware/opencode-agents/v1.0.0/.opencode/schemas/bundle-manifest/v1.0.0.schema.json",
+  "title": "OpenCode Bundle Manifest",
+  "description": "Schema for OpenCode configuration bundle manifest files",
+  "type": "object",
+  "required": ["manifest_version", "bundle_name", "bundle_version", "presets"],
+  "properties": {
+    "manifest_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Semantic version of the bundle manifest schema (e.g., 1.0.0). CLI supports this version and N-1."
+    },
+    "bundle_name": {
+      "type": "string",
+      "description": "Stable identifier for the bundle (lowercase, hyphens allowed)"
+    },
+    "bundle_version": {
+      "type": "string",
+      "description": "Release tag or version string for the bundle (e.g., v1.0.0, 2026.03.27)"
+    },
+    "bundle_root": {
+      "type": "string",
+      "description": "Root directory name of the bundle (optional, inferred from archive structure if absent)"
+    },
+    "source_repo": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL of source repository"
+    },
+    "source_commit": {
+      "type": "string",
+      "description": "Git commit SHA"
+    },
+    "release_tag": {
+      "type": "string",
+      "description": "Release tag (often matches bundle_version)"
+    },
+    "presets": {
+      "type": "array",
+      "description": "Array of preset descriptors",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "description", "entrypoint"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$",
+            "description": "Stable preset identifier (lowercase, hyphens allowed)"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Short human-readable description"
+          },
+          "entrypoint": {
+            "type": "string",
+            "description": "Path to preset JSON file relative to bundle root"
+          },
+          "prompt_files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Array of prompt file paths to materialize (can be empty)"
+          }
+        }
+      }
+    },
+    "update_capable": {
+      "type": "boolean",
+      "description": "Whether the bundle supports self-updates"
+    },
+    "update_check_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL to check for bundle updates (used when update_capable is true)"
+    }
+  }
+}

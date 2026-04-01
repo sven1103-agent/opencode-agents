@@ -2,16 +2,41 @@
 package bundle
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+
+	"github.com/santhosh-tekuri/jsonschema/v5"
 )
+
+//go:embed schema.json
+var embeddedSchema string
+
+var schemaCompiler *jsonschema.Compiler
+
+func init() {
+	schemaCompiler = jsonschema.NewCompiler()
+	if err := schemaCompiler.AddResource("schema.json", strings.NewReader(embeddedSchema)); err != nil {
+		panic(fmt.Sprintf("failed to load embedded schema: %v", err))
+	}
+}
+
+func isVersionSupported(version string) bool {
+	for _, v := range supportedVersions {
+		if version == v {
+			return true
+		}
+	}
+	return false
+}
 
 // Manifest represents the bundle manifest file format.
 type Manifest struct {
-	ManifestVersion int      `json:"manifest_version"`
+	ManifestVersion string   `json:"manifest_version"`
 	BundleName      string   `json:"bundle_name"`
 	BundleVersion   string   `json:"bundle_version"`
 	BundleRoot      string   `json:"bundle_root"`
@@ -19,6 +44,8 @@ type Manifest struct {
 	UpdateCapable   bool     `json:"update_capable,omitempty"`
 	UpdateCheckURL  string   `json:"update_check_url,omitempty"`
 }
+
+var supportedVersions = []string{"1.0.0"}
 
 // Preset represents a preset entry in the bundle manifest.
 type Preset struct {
@@ -51,8 +78,8 @@ func LoadManifest(manifestPath string) (*Manifest, error) {
 		return nil, fmt.Errorf("failed to parse manifest: %w", err)
 	}
 
-	if manifest.ManifestVersion != 1 {
-		return nil, fmt.Errorf("unsupported manifest version: %d (expected 1)", manifest.ManifestVersion)
+	if !isVersionSupported(manifest.ManifestVersion) {
+		return nil, fmt.Errorf("unsupported manifest version: %s (supported: %v)", manifest.ManifestVersion, supportedVersions)
 	}
 
 	return &manifest, nil
