@@ -49,11 +49,20 @@ oc version
 
 **Build from source:**
 ```sh
+# Installs the latest stable Go module release.
 go install github.com/sven1103-agent/opencode-config-cli@latest
 
 # Verify
 oc version
 ```
+
+To install a prerelease, pin the exact semantic version tag:
+
+```sh
+go install github.com/sven1103-agent/opencode-config-cli@v1.0.0-alpha.3
+```
+
+`@latest` follows Go module version selection, so it does not mean "latest GitHub prerelease".
 
 > **Note:** The CLI binary is `oc`.
 

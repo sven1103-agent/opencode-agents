@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Semantic version (e.g., v0.1.0-alpha.1)'
+        description: 'Semantic version (e.g., 1.0.0-alpha.3 or v1.0.0-alpha.3)'
         required: true
         type: string
 
@@ -22,6 +22,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Normalize release tag
+        id: version
+        shell: bash
+        run: |
+          raw='${{ github.event.inputs.version }}'
+          raw="${raw#refs/tags/}"
+
+          if [[ "$raw" != v* ]]; then
+            raw="v$raw"
+          fi
+
+          if [[ ! "$raw" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid semantic version tag: $raw" >&2
+            exit 1
+          fi
+
+          echo "tag=$raw" >> "$GITHUB_OUTPUT"
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -30,8 +48,8 @@ jobs:
 
       - name: Create git tag
         run: |
-          git tag -f ${{ github.event.inputs.version }}
-          git push origin ${{ github.event.inputs.version }} --force
+          git tag -f ${{ steps.version.outputs.tag }}
+          git push origin ${{ steps.version.outputs.tag }} --force
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
