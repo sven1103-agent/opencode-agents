@@ -5,6 +5,7 @@
 [![Version](https://img.shields.io/github/v/release/sven1103-agent/opencode-config-cli?include_prereleases&label=version)](https://github.com/sven1103-agent/opencode-config-cli/releases)
 [![CI](https://github.com/sven1103-agent/opencode-config-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/sven1103-agent/opencode-config-cli/actions/workflows/ci.yml)
 [![E2E CLI](https://github.com/sven1103-agent/opencode-config-cli/actions/workflows/e2e-cli.yml/badge.svg)](https://github.com/sven1103-agent/opencode-config-cli/actions/workflows/e2e-cli.yml)
+
 **Manage OpenCode configuration bundles and schema-validated multi-agent workflows**
 
 ## What is this?
