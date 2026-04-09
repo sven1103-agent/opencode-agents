@@ -31,12 +31,7 @@ builds:
       - -X github.com/sven1103-agent/opencode-config-cli/internal/version.Version={{.Version}}
 
 changelog:
-  sort: desc
-  filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
-      - "^chore:"
+  disable: true
 
 release:
   github:

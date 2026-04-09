@@ -79,3 +79,18 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate categorized GitHub release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/releases/generate-notes \
+            -f tag_name='${{ steps.version.outputs.tag }}' \
+            --jq '.body' > release-notes.md
+
+          gh release edit '${{ steps.version.outputs.tag }}' \
+            --notes-file release-notes.md

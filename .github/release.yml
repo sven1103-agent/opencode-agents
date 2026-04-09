@@ -1,0 +1,28 @@
+changelog:
+  exclude:
+    labels:
+      - skip-release-notes
+  categories:
+    - title: Breaking Changes
+      labels:
+        - kind:breaking
+    - title: Features
+      labels:
+        - kind:feature
+        - enhancement
+    - title: Bug Fixes
+      labels:
+        - kind:fix
+        - bug
+    - title: Maintenance
+      labels:
+        - kind:chore
+    - title: Documentation
+      labels:
+        - kind:docs
+        - documentation
+change-template: '- $TITLE in #$NUMBER by @$AUTHOR'
+template: |
+  ## What's Changed
+
+  $CHANGES
