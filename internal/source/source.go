@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -45,6 +46,20 @@ type Registry struct {
 type GitHubRef struct {
 	Repo string
 	Tag  string
+}
+
+// AmbiguousSourceRefError reports when a source name matches more than one source.
+type AmbiguousSourceRefError struct {
+	Ref     string
+	Matches []Source
+}
+
+func (e *AmbiguousSourceRefError) Error() string {
+	parts := make([]string, 0, len(e.Matches))
+	for _, match := range e.Matches {
+		parts = append(parts, fmt.Sprintf("%s (%s)", match.Name, match.ID))
+	}
+	return fmt.Sprintf("source name is ambiguous: %s (matches: %s)", e.Ref, strings.Join(parts, ", "))
 }
 
 var ownerRepoPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
@@ -349,4 +364,42 @@ func GetSource(id string) (*Source, error) {
 	}
 
 	return nil, fmt.Errorf("source not found: %s", id)
+}
+
+// ResolveSourceRef resolves a source reference by exact ID or unique name.
+func ResolveSourceRef(ref string) (*Source, error) {
+	registry, err := LoadRegistry()
+	if err != nil {
+		return nil, err
+	}
+
+	trimmed := strings.TrimSpace(ref)
+	if trimmed == "" {
+		return nil, fmt.Errorf("source reference cannot be empty")
+	}
+
+	for _, s := range registry.Sources {
+		if s.ID == trimmed {
+			return &s, nil
+		}
+	}
+
+	var matches []Source
+	for _, s := range registry.Sources {
+		if s.Name == trimmed {
+			matches = append(matches, s)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return nil, fmt.Errorf("source not found: %s", ref)
+	case 1:
+		return &matches[0], nil
+	default:
+		sort.Slice(matches, func(i, j int) bool {
+			return matches[i].ID < matches[j].ID
+		})
+		return nil, &AmbiguousSourceRefError{Ref: trimmed, Matches: matches}
+	}
 }

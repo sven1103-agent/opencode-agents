@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,6 +43,7 @@ func TestBundleApplyNoSource(t *testing.T) {
 		bundleForce = origForce
 		bundleDryRun = origDryRun
 		bundleOutput = origOutput
+		bundleAuto = false
 	}()
 
 	// Test with nonexistent source
@@ -57,14 +59,46 @@ func TestBundleApplyNoSource(t *testing.T) {
 
 // TestBundleApplyMissingPreset tests applying with missing preset flag
 func TestBundleApplyMissingPreset(t *testing.T) {
+	restore := saveRegistry(t)
+	defer restore()
+
+	bundleDir := t.TempDir()
+	manifest := `{"manifest_version":"1.0.0","bundle_name":"local","bundle_version":"v1.0.0","presets":[{"name":"test","entrypoint":"test.json","description":"Test preset"}]}`
+	if err := os.WriteFile(filepath.Join(bundleDir, "opencode-bundle.manifest.json"), []byte(manifest), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(bundleDir, "test.json"), []byte(`{"agents":[]}`), 0644); err != nil {
+		t.Fatalf("failed to write preset: %v", err)
+	}
+
+	registry, _ := source.LoadRegistry()
+	registry.Sources = []source.Source{{ID: "abc12345", Name: "qbic", Type: source.SourceTypeLocalDirectory, Location: bundleDir}}
+	if err := source.SaveRegistry(registry); err != nil {
+		t.Fatalf("failed to save registry: %v", err)
+	}
+
 	origPreset := bundlePreset
+	origAuto := bundleAuto
+	origTTY := bundleInputIsTTY
+	origProjectRoot := bundleProjectRoot
 	defer func() { bundlePreset = origPreset }()
+	defer func() {
+		bundleAuto = origAuto
+		bundleInputIsTTY = origTTY
+		bundleProjectRoot = origProjectRoot
+	}()
 
 	bundlePreset = ""
+	bundleAuto = false
+	bundleInputIsTTY = func() bool { return false }
+	bundleProjectRoot = t.TempDir()
 
 	err := runBundleApply("abc12345")
 	if err == nil {
 		t.Error("runBundleApply() expected error when preset is missing")
+	}
+	if !strings.Contains(err.Error(), "--preset is required outside interactive mode") {
+		t.Fatalf("runBundleApply() error = %v", err)
 	}
 }
 
@@ -196,6 +230,9 @@ func TestBundleApplyFlags(t *testing.T) {
 	if bundleApplyCmd.Flags().Lookup("preset") == nil {
 		t.Error("preset flag should exist on bundle apply command")
 	}
+	if bundleApplyCmd.Flags().Lookup("auto") == nil {
+		t.Error("auto flag should exist on bundle apply command")
+	}
 	if bundleApplyCmd.Flags().Lookup("project-root") == nil {
 		t.Error("project-root flag should exist on bundle apply command")
 	}
@@ -273,5 +310,183 @@ func TestBundleApplyRejectsVersionForLocalSources(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "--version is only supported for github-release sources") {
 		t.Fatalf("runBundleApply() error = %v", err)
+	}
+}
+
+func TestBundleApplyResolvesSourceByName(t *testing.T) {
+	restore := saveRegistry(t)
+	defer restore()
+
+	bundleDir := t.TempDir()
+	manifest := `{"manifest_version":"1.0.0","bundle_name":"local","bundle_version":"v1.0.0","presets":[{"name":"test","entrypoint":"test.json","description":"Test preset"}]}`
+	if err := os.WriteFile(filepath.Join(bundleDir, "opencode-bundle.manifest.json"), []byte(manifest), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(bundleDir, "test.json"), []byte(`{"agents":[]}`), 0644); err != nil {
+		t.Fatalf("failed to write preset: %v", err)
+	}
+
+	registry, _ := source.LoadRegistry()
+	registry.Sources = []source.Source{{
+		ID:       "local1",
+		Location: bundleDir,
+		Type:     source.SourceTypeLocalDirectory,
+		Name:     "qbic",
+	}}
+	if err := source.SaveRegistry(registry); err != nil {
+		t.Fatalf("failed to save registry: %v", err)
+	}
+
+	projectRoot := setupTestProject(t)
+	defer os.RemoveAll(projectRoot)
+
+	origPreset := bundlePreset
+	origProjectRoot := bundleProjectRoot
+	defer func() {
+		bundlePreset = origPreset
+		bundleProjectRoot = origProjectRoot
+	}()
+
+	bundlePreset = "test"
+	bundleProjectRoot = projectRoot
+
+	if err := runBundleApply("qbic"); err != nil {
+		t.Fatalf("runBundleApply() error = %v", err)
+	}
+
+	prov, err := bundle.LoadProvenance(projectRoot)
+	if err != nil {
+		t.Fatalf("LoadProvenance() error = %v", err)
+	}
+	if prov.SourceID != "local1" {
+		t.Fatalf("provenance SourceID = %q, want local1", prov.SourceID)
+	}
+}
+
+func TestBundleApplyRejectsAmbiguousSourceName(t *testing.T) {
+	restore := saveRegistry(t)
+	defer restore()
+
+	registry, _ := source.LoadRegistry()
+	registry.Sources = []source.Source{{ID: "id-1", Name: "qbic", Type: source.SourceTypeLocalDirectory, Location: "/tmp/a"}, {ID: "id-2", Name: "qbic", Type: source.SourceTypeLocalDirectory, Location: "/tmp/b"}}
+	if err := source.SaveRegistry(registry); err != nil {
+		t.Fatalf("failed to save registry: %v", err)
+	}
+
+	origPreset := bundlePreset
+	bundlePreset = "test"
+	defer func() { bundlePreset = origPreset }()
+
+	err := runBundleApply("qbic")
+	if err == nil {
+		t.Fatal("runBundleApply() error = nil, want ambiguous source error")
+	}
+	if !strings.Contains(err.Error(), "ambiguous") || !strings.Contains(err.Error(), "id-1") || !strings.Contains(err.Error(), "id-2") {
+		t.Fatalf("runBundleApply() error = %v", err)
+	}
+}
+
+func TestBundleApplyInteractiveSelectsPreset(t *testing.T) {
+	restore := saveRegistry(t)
+	defer restore()
+
+	bundleDir := t.TempDir()
+	manifest := `{"manifest_version":"1.0.0","bundle_name":"local","bundle_version":"v1.0.0","presets":[{"name":"first","entrypoint":"first.json","description":"First preset"},{"name":"second","entrypoint":"second.json","description":"Second preset"}]}`
+	if err := os.WriteFile(filepath.Join(bundleDir, "opencode-bundle.manifest.json"), []byte(manifest), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(bundleDir, "first.json"), []byte(`{"name":"first"}`), 0644); err != nil {
+		t.Fatalf("failed to write first preset: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(bundleDir, "second.json"), []byte(`{"name":"second"}`), 0644); err != nil {
+		t.Fatalf("failed to write second preset: %v", err)
+	}
+
+	registry, _ := source.LoadRegistry()
+	registry.Sources = []source.Source{{ID: "local1", Name: "qbic", Type: source.SourceTypeLocalDirectory, Location: bundleDir}}
+	if err := source.SaveRegistry(registry); err != nil {
+		t.Fatalf("failed to save registry: %v", err)
+	}
+
+	projectRoot := setupTestProject(t)
+	defer os.RemoveAll(projectRoot)
+
+	origPreset := bundlePreset
+	origAuto := bundleAuto
+	origTTY := bundleInputIsTTY
+	origPromptIn := bundlePromptIn
+	origPromptOut := bundlePromptOut
+	defer func() {
+		bundlePreset = origPreset
+		bundleAuto = origAuto
+		bundleInputIsTTY = origTTY
+		bundlePromptIn = origPromptIn
+		bundlePromptOut = origPromptOut
+	}()
+
+	bundlePreset = ""
+	bundleAuto = false
+	bundleProjectRoot = projectRoot
+	bundleInputIsTTY = func() bool { return true }
+	bundlePromptIn = strings.NewReader("2\n")
+	bundlePromptOut = io.Discard
+
+	if err := runBundleApply("qbic"); err != nil {
+		t.Fatalf("runBundleApply() error = %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(projectRoot, "opencode.json"))
+	if err != nil {
+		t.Fatalf("failed to read written config: %v", err)
+	}
+	if string(content) != `{"name":"second"}` {
+		t.Fatalf("written config = %s", content)
+	}
+}
+
+func TestBundleApplyInteractiveAcceptsNumericLikePresetName(t *testing.T) {
+	manifest := &bundle.Manifest{
+		BundleName: "numeric-fixture",
+		Presets: []bundle.Preset{
+			{Name: "first", Description: "First preset"},
+			{Name: "2", Description: "Numeric-like preset"},
+		},
+	}
+
+	origPromptIn := bundlePromptIn
+	origPromptOut := bundlePromptOut
+	defer func() {
+		bundlePromptIn = origPromptIn
+		bundlePromptOut = origPromptOut
+	}()
+
+	bundlePromptIn = strings.NewReader("2\n")
+	bundlePromptOut = io.Discard
+
+	selected, err := promptForPresetSelection(manifest)
+	if err != nil {
+		t.Fatalf("promptForPresetSelection() error = %v", err)
+	}
+	if selected != "2" {
+		t.Fatalf("selected preset = %q, want %q", selected, "2")
+	}
+}
+
+func TestCompleteSourceRefs(t *testing.T) {
+	restore := saveRegistry(t)
+	defer restore()
+
+	registry, _ := source.LoadRegistry()
+	registry.Sources = []source.Source{{ID: "id-1", Name: "qbic", Type: source.SourceTypeLocalDirectory, Location: "/tmp/a"}}
+	if err := source.SaveRegistry(registry); err != nil {
+		t.Fatalf("failed to save registry: %v", err)
+	}
+
+	completions, directive := completeSourceRefs(nil, nil, "q")
+	if directive != 4 { // cobra.ShellCompDirectiveNoFileComp
+		t.Fatalf("directive = %v", directive)
+	}
+	if len(completions) != 1 || completions[0] != "qbic" {
+		t.Fatalf("completions = %v", completions)
 	}
 }

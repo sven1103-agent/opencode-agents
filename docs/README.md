@@ -29,6 +29,9 @@ oc source add qbicsoftware/opencode-config-bundle --name qbic
 
 # Apply a preset
 oc bundle apply qbic --preset mixed --project-root .
+
+# Or let the CLI prompt for a preset in a TTY
+oc bundle apply qbic --project-root .
 ```
 
 ## Available Bundles
