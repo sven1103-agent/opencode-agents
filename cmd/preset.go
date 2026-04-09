@@ -4,16 +4,21 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+	"github.com/sven1103-agent/opencode-config-cli/internal/bundle"
 	"github.com/sven1103-agent/opencode-config-cli/internal/preset"
+	"github.com/sven1103-agent/opencode-config-cli/internal/source"
 )
 
 var (
-	presetProjectRoot string
-	presetOutput      string
-	presetForce       bool
-	presetDryRun      bool
+	presetProjectRoot    string
+	presetOutput         string
+	presetForce          bool
+	presetDryRun         bool
+	presetSources        bool
+	presetResolveToLocal = bundle.ResolveToLocal
 )
 
 // presetCmd represents the preset command
@@ -22,19 +27,14 @@ var presetCmd = &cobra.Command{
 	Short: "Manage OpenCode presets",
 	Long: `Manage OpenCode configuration presets.
 
-Available presets:
-  - mixed: Mixed model configuration (default)
-  - openai: OpenAI-focused configuration
-  - big-pickle: Big-pickle configuration
-  - minimax: Minimax configuration
-  - kimi: Kimi configuration`,
+Use 'preset list' for built-in presets or 'preset list --sources' to browse registered sources.`,
 }
 
 // presetListCmd lists all available presets
 var presetListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List all available presets",
-	Long:  "List all available presets that can be used with 'preset use'",
+	Short: "List available presets",
+	Long:  "List built-in presets or browse presets across registered sources with --sources",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runPresetList()
 	},
@@ -73,14 +73,67 @@ func init() {
 	presetUseCmd.Flags().StringVar(&presetOutput, "output", "opencode.json", "Output file path")
 	presetUseCmd.Flags().BoolVar(&presetForce, "force", false, "Overwrite existing files")
 	presetUseCmd.Flags().BoolVar(&presetDryRun, "dry-run", false, "Show what would be done without doing it")
+	presetListCmd.Flags().BoolVar(&presetSources, "sources", false, "List presets across registered sources")
 }
 
 func runPresetList() error {
+	if presetSources {
+		return runSourcePresetList()
+	}
+
 	presets := preset.ValidPresets()
 	fmt.Println("Available presets:")
 	for _, p := range presets {
 		fmt.Printf("  - %s\n", p)
 	}
+	return nil
+}
+
+func runSourcePresetList() error {
+	sources, err := source.ListSources()
+	if err != nil {
+		return fmt.Errorf("failed to list sources: %w", err)
+	}
+	if len(sources) == 0 {
+		return fmt.Errorf("no sources registered. Use 'oc source add <location>' first")
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintf(w, "SOURCE_REF\tSOURCE_ID\tBUNDLE_VERSION\tPRESET\tDESCRIPTION\n")
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", "──────────", "─────────", "──────────────", "──────", "───────────")
+
+	foundPreset := false
+	for _, src := range sources {
+		bundleRoot, cleanup, err := presetResolveToLocal(string(src.Type), src.Location, "")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to inspect source %s (%s): %v\n", src.Name, src.ID, err)
+			continue
+		}
+
+		manifest, err := bundle.LoadManifest(filepath.Join(bundleRoot, "opencode-bundle.manifest.json"))
+		cleanup()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to inspect source %s (%s): %v\n", src.Name, src.ID, err)
+			continue
+		}
+
+		ref := src.ID
+		if src.Name != "" {
+			ref = src.Name
+		}
+		for _, preset := range manifest.Presets {
+			foundPreset = true
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", ref, src.ID, manifest.BundleVersion, preset.Name, preset.Description)
+		}
+	}
+
+	if err := w.Flush(); err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
+	if !foundPreset {
+		return fmt.Errorf("no inspectable source presets found")
+	}
+
 	return nil
 }
 

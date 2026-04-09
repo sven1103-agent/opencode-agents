@@ -38,6 +38,7 @@ oc preset list --sources
 
 ```sh
 oc bundle apply qbic --preset mixed --project-root .
+oc bundle apply qbic --project-root .
 ```
 
 ## Creating Your Own Bundle

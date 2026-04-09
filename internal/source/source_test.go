@@ -1,7 +1,10 @@
 package source
 
 import (
+	"encoding/json"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -119,6 +122,68 @@ func TestValidateSource_GitHubInput(t *testing.T) {
 	err := ValidateSource("qbicsoftware/opencode-config-bundle", SourceTypeGitHubRelease)
 	if err != nil {
 		t.Fatalf("ValidateSource() error = %v", err)
+	}
+}
+
+func TestResolveSourceRef(t *testing.T) {
+	setRegistryForTest(t, []Source{
+		{ID: "id-1", Name: "qbic", Type: SourceTypeLocalDirectory, Location: "/tmp/a"},
+		{ID: "id-2", Name: "other", Type: SourceTypeLocalDirectory, Location: "/tmp/b"},
+	})
+
+	byID, err := ResolveSourceRef("id-1")
+	if err != nil {
+		t.Fatalf("ResolveSourceRef(id) error = %v", err)
+	}
+	if byID.Name != "qbic" {
+		t.Fatalf("ResolveSourceRef(id).Name = %q", byID.Name)
+	}
+
+	byName, err := ResolveSourceRef("qbic")
+	if err != nil {
+		t.Fatalf("ResolveSourceRef(name) error = %v", err)
+	}
+	if byName.ID != "id-1" {
+		t.Fatalf("ResolveSourceRef(name).ID = %q", byName.ID)
+	}
+}
+
+func TestResolveSourceRefAmbiguousName(t *testing.T) {
+	setRegistryForTest(t, []Source{
+		{ID: "id-1", Name: "qbic", Type: SourceTypeLocalDirectory, Location: "/tmp/a"},
+		{ID: "id-2", Name: "qbic", Type: SourceTypeLocalDirectory, Location: "/tmp/b"},
+	})
+
+	_, err := ResolveSourceRef("qbic")
+	if err == nil {
+		t.Fatal("ResolveSourceRef() error = nil, want ambiguity error")
+	}
+	if !strings.Contains(err.Error(), "ambiguous") || !strings.Contains(err.Error(), "id-1") || !strings.Contains(err.Error(), "id-2") {
+		t.Fatalf("ResolveSourceRef() error = %v", err)
+	}
+}
+
+func setRegistryForTest(t *testing.T, sources []Source) {
+	t.Helper()
+	configDir := t.TempDir()
+	homeDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configDir)
+	t.Setenv("HOME", homeDir)
+
+	registryPath, err := RegistryPath()
+	if err != nil {
+		t.Fatalf("failed to resolve registry path: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(registryPath), 0755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	data, err := json.Marshal(&Registry{Version: 1, Sources: sources})
+	if err != nil {
+		t.Fatalf("failed to marshal registry: %v", err)
+	}
+	if err := os.WriteFile(registryPath, data, 0644); err != nil {
+		t.Fatalf("failed to write registry: %v", err)
 	}
 }
 

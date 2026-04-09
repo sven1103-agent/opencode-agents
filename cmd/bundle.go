@@ -1,9 +1,13 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/sven1103-agent/opencode-config-cli/internal/bundle"
@@ -15,11 +19,15 @@ var (
 	bundleProjectRoot    string
 	bundlePreset         string
 	bundleVersion        string
+	bundleAuto           bool
 	bundleForce          bool
 	bundleDryRun         bool
 	bundleOutput         string
 	bundleYes            bool
-	bundleResolveToLocal = bundle.ResolveToLocal
+	bundleResolveToLocal           = bundle.ResolveToLocal
+	bundlePromptIn       io.Reader = os.Stdin
+	bundlePromptOut      io.Writer = os.Stdout
+	bundleInputIsTTY               = isInteractiveTTY
 )
 
 // bundleCmd represents the bundle command
@@ -31,25 +39,27 @@ var bundleCmd = &cobra.Command{
 Apply, track, and update configuration bundles from registered sources.
 
 Examples:
-  oc bundle apply abc12345 --preset default
-  oc bundle status
-  oc bundle update abc12345`,
+	  oc bundle apply qbic --preset default
+	  oc bundle apply qbic
+	  oc bundle status
+	  oc bundle update abc12345`,
 }
 
 // bundleApplyCmd applies a preset from a registered config bundle
 var bundleApplyCmd = &cobra.Command{
-	Use:   "apply <source-id>",
+	Use:   "apply <source-ref>",
 	Short: "Apply a preset from a config bundle",
 	Long: `Apply a preset from a registered config bundle to a project.
 
-The source-id must reference a registered config source (see 'source list').
-The preset name must exist in the bundle's manifest.
+The source-ref may be either a registered source ID or a unique source name.
+In interactive terminals, omitting --preset opens a guided preset selection flow.
 
 Examples:
-  oc bundle apply abc12345 --preset default
-  oc bundle apply abc12345 --version v1.2.3 --preset default
-  oc bundle apply abc12345 --preset minimal --project-root ./myproject
-  oc bundle apply abc12345 --preset default --force`,
+	  oc bundle apply qbic --preset default
+	  oc bundle apply qbic
+	  oc bundle apply abc12345 --version v1.2.3 --preset default
+	  oc bundle apply qbic --preset minimal --project-root ./myproject
+	  oc bundle apply qbic --auto --preset default --force`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runBundleApply(args[0])
@@ -98,13 +108,16 @@ func init() {
 	bundleCmd.AddCommand(bundleUpdateCmd)
 
 	// Flags for bundle apply
-	bundleApplyCmd.Flags().StringVar(&bundlePreset, "preset", "", "Preset name to apply (required)")
+	bundleApplyCmd.Flags().StringVar(&bundlePreset, "preset", "", "Preset name to apply")
 	bundleApplyCmd.Flags().StringVar(&bundleVersion, "version", "", "Bundle version/tag to apply for github-release sources")
 	bundleApplyCmd.Flags().StringVar(&bundleProjectRoot, "project-root", ".", "Project root directory")
 	bundleApplyCmd.Flags().StringVar(&bundleOutput, "output", "opencode.json", "Output file path")
+	bundleApplyCmd.Flags().BoolVar(&bundleAuto, "auto", false, "Disable interactive preset selection")
 	bundleApplyCmd.Flags().BoolVar(&bundleForce, "force", false, "Overwrite existing files")
 	bundleApplyCmd.Flags().BoolVar(&bundleDryRun, "dry-run", false, "Show what would be done without doing it")
-	_ = bundleApplyCmd.MarkFlagRequired("preset") //nolint:errcheck
+	bundleApplyCmd.ValidArgsFunction = completeSourceRefs
+	_ = bundleApplyCmd.RegisterFlagCompletionFunc("preset", completeBundlePresetNames)
+	bundleUpdateCmd.ValidArgsFunction = completeSourceRefs
 
 	// Flags for bundle status
 	bundleStatusCmd.Flags().StringVar(&bundleProjectRoot, "project-root", ".", "Project root directory")
@@ -113,12 +126,7 @@ func init() {
 	bundleUpdateCmd.Flags().BoolVar(&bundleYes, "yes", false, "Skip confirmation prompt")
 }
 
-func runBundleApply(sourceID string) error {
-	// Validate preset name is provided
-	if bundlePreset == "" {
-		return fmt.Errorf("--preset is required")
-	}
-
+func runBundleApply(sourceRef string) error {
 	// Resolve project root
 	projectRoot, err := filepath.Abs(bundleProjectRoot)
 	if err != nil {
@@ -130,10 +138,10 @@ func runBundleApply(sourceID string) error {
 		return fmt.Errorf("project root does not exist: %s", projectRoot)
 	}
 
-	// Get the source from registry
-	src, err := source.GetSource(sourceID)
+	// Resolve the source from registry
+	src, err := source.ResolveSourceRef(sourceRef)
 	if err != nil {
-		return fmt.Errorf("source not found: %s", sourceID)
+		return err
 	}
 	if bundleVersion != "" && string(src.Type) != "github-release" {
 		return fmt.Errorf("--version is only supported for github-release sources")
@@ -153,10 +161,21 @@ func runBundleApply(sourceID string) error {
 		return fmt.Errorf("failed to load manifest: %w", err)
 	}
 
+	selectedPreset := bundlePreset
+	if selectedPreset == "" {
+		if bundleAuto || !bundleInputIsTTY() {
+			return fmt.Errorf("--preset is required outside interactive mode")
+		}
+		selectedPreset, err = promptForPresetSelection(manifest)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Get preset from manifest
-	bundlePresetEntry, err := bundle.GetPreset(manifest, bundlePreset)
+	bundlePresetEntry, err := bundle.GetPreset(manifest, selectedPreset)
 	if err != nil {
-		return fmt.Errorf("preset not found in bundle: %s", bundlePreset)
+		return fmt.Errorf("preset not found in bundle: %s", selectedPreset)
 	}
 
 	// Resolve output path
@@ -176,7 +195,7 @@ func runBundleApply(sourceID string) error {
 
 	// Dry run mode
 	if bundleDryRun {
-		fmt.Printf("dry-run: apply preset '%s' from bundle '%s'\n", bundlePreset, manifest.BundleName)
+		fmt.Printf("dry-run: apply preset '%s' from bundle '%s'\n", selectedPreset, manifest.BundleName)
 		fmt.Printf("dry-run: write config to %s\n", outputPath)
 		return nil
 	}
@@ -189,11 +208,11 @@ func runBundleApply(sourceID string) error {
 
 	// Write provenance
 	prov := &bundle.Provenance{
-		SourceID:      sourceID,
+		SourceID:      src.ID,
 		SourceName:    src.Name,
 		SourceType:    string(src.Type),
 		BundleVersion: manifest.BundleVersion,
-		PresetName:    bundlePreset,
+		PresetName:    selectedPreset,
 		Entrypoint:    bundlePresetEntry.Entrypoint,
 		AppliedAt:     "2026-03-31T00:00:00Z", // Would use time.Now().Format(time.RFC3339)
 	}
@@ -205,6 +224,123 @@ func runBundleApply(sourceID string) error {
 	fmt.Println("done: bundle applied")
 
 	return nil
+}
+
+func promptForPresetSelection(manifest *bundle.Manifest) (string, error) {
+	if len(manifest.Presets) == 0 {
+		return "", fmt.Errorf("bundle has no presets to select")
+	}
+
+	reader := bufio.NewReader(bundlePromptIn)
+	for {
+		fmt.Fprintf(bundlePromptOut, "Available presets for %s:\n", manifest.BundleName)
+		for i, preset := range manifest.Presets {
+			if preset.Description != "" {
+				fmt.Fprintf(bundlePromptOut, "  %d) %s - %s\n", i+1, preset.Name, preset.Description)
+				continue
+			}
+			fmt.Fprintf(bundlePromptOut, "  %d) %s\n", i+1, preset.Name)
+		}
+		fmt.Fprint(bundlePromptOut, "Select a preset: ")
+
+		selection, err := reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				return "", fmt.Errorf("interactive preset selection cancelled")
+			}
+			return "", fmt.Errorf("failed to read preset selection: %w", err)
+		}
+
+		selection = strings.TrimSpace(selection)
+		if index, err := strconv.Atoi(selection); err == nil {
+			if index >= 1 && index <= len(manifest.Presets) {
+				return manifest.Presets[index-1].Name, nil
+			}
+		} else {
+			for _, preset := range manifest.Presets {
+				if preset.Name == selection {
+					return preset.Name, nil
+				}
+			}
+		}
+
+		fmt.Fprintln(bundlePromptOut, "Invalid selection. Please enter a preset number or exact name.")
+	}
+}
+
+func isInteractiveTTY() bool {
+	info, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	return info.Mode()&os.ModeCharDevice != 0
+}
+
+func completeSourceRefs(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	sources, err := source.ListSources()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	seen := map[string]struct{}{}
+	var refs []string
+	for _, src := range sources {
+		for _, candidate := range sourceCompletionCandidates(src) {
+			if !strings.HasPrefix(candidate, toComplete) {
+				continue
+			}
+			if _, ok := seen[candidate]; ok {
+				continue
+			}
+			seen[candidate] = struct{}{}
+			refs = append(refs, candidate)
+		}
+	}
+
+	return refs, cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeBundlePresetNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) == 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	src, err := source.ResolveSourceRef(args[0])
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	versionTag := ""
+	if flag := cmd.Flags().Lookup("version"); flag != nil {
+		versionTag = flag.Value.String()
+	}
+
+	bundleRoot, cleanup, err := bundleResolveToLocal(string(src.Type), src.Location, versionTag)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	defer cleanup()
+
+	manifest, err := bundle.LoadManifest(filepath.Join(bundleRoot, "opencode-bundle.manifest.json"))
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	var presets []string
+	for _, preset := range manifest.Presets {
+		if strings.HasPrefix(preset.Name, toComplete) {
+			presets = append(presets, preset.Name)
+		}
+	}
+
+	return presets, cobra.ShellCompDirectiveNoFileComp
+}
+
+func sourceCompletionCandidates(src source.Source) []string {
+	if src.Name == "" || src.Name == src.ID {
+		return []string{src.ID}
+	}
+	return []string{src.ID, src.Name}
 }
 
 func runBundleStatus() error {
@@ -232,11 +368,11 @@ func runBundleStatus() error {
 	return nil
 }
 
-func runBundleUpdate(sourceID string) error {
+func runBundleUpdate(sourceRef string) error {
 	// Get the source from registry
-	src, err := source.GetSource(sourceID)
+	src, err := source.ResolveSourceRef(sourceRef)
 	if err != nil {
-		return fmt.Errorf("source not found: %s", sourceID)
+		return err
 	}
 
 	// For now, github-release is required for updates (as per shell script behavior)

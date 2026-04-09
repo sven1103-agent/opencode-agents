@@ -1385,10 +1385,11 @@ Priority:
 - P3
 
 Status:
-- In progress
+- In review
 
 PR:
 - [#141](https://github.com/sven1103-agent/opencode-config-cli/pull/141)
+- TBD
 
 Type:
 - User-facing

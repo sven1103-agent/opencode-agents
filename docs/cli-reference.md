@@ -62,17 +62,19 @@ Apply and manage config bundles.
 Apply a preset from a registered source.
 
 ```sh
-oc bundle apply <source-id> --preset <preset> --project-root <path>
+oc bundle apply <source-ref> [--preset <preset>] [--auto] --project-root <path>
 ```
 
 **Options:**
-- `--preset` — Preset name to apply (required)
+- `--preset` — Preset name to apply
+- `--auto` — Disable interactive preset selection in TTY mode
 - `--project-root` — Target directory (default: `.`)
 
 **Example:**
 
 ```sh
 oc bundle apply qbic --preset mixed --project-root ./myproject
+oc bundle apply qbic --project-root ./myproject
 ```
 
 ### oc bundle status
@@ -107,7 +109,17 @@ List available presets.
 oc preset list --sources
 ```
 
-Shows presets from all registered sources.
+Shows presets from all registered sources with source and bundle context.
+
+### oc completion
+
+Generate shell completions.
+
+```sh
+oc completion bash
+oc completion zsh
+oc completion fish
+```
 
 ## Migration Commands
 
