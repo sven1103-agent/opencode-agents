@@ -131,14 +131,14 @@ Goal:
 
 Primary stories:
 - `US-048` - Add shell completions
-- `US-049` - Add --interactive flag for TTY mode
+- `US-049` - Add human-first interactive defaults for TTY source-aware flows
 - `US-050` - Set up goreleaser
 - `US-051` - Create Homebrew tap
 - `US-052` - Add CI-backed end-to-end coverage for the Go CLI
 
 Implementation:
 - `US-048`: ⏳ Open
-- `US-049`: ⏳ Open
+- `US-049`: 🔄 In progress
 - `US-050`: ✅ Done (PR #90)
 - `US-051`: ⏳ Open
 - `US-052`: ✅ Done (PR #120)
@@ -150,7 +150,7 @@ Why last:
 
 Exit criteria:
 - Shell completions for bash, zsh, fish
-- Interactive mode with --interactive flag for relevant commands
+- Human-first interactive defaults for relevant source-aware TTY commands, with explicit non-interactive opt-out for automation
 - goreleaser configured for automated releases
 - Homebrew tap created/updated
 - Dedicated GitHub Actions workflow builds `oc` and runs black-box E2E tests
@@ -194,7 +194,7 @@ Shipped-binary coverage depends on core command stability:
 | 7 | `US-046` | ✅ Done | Implement bundle commands (PR #95) |
 | 8 | `US-047` | ✅ Done | Implement update command (PR #93) |
 | 9 | `US-048` | ⏳ Open | Add shell completions |
-| 10 | `US-049` | ⏳ Open | Add --interactive flag |
+| 10 | `US-049` | 🔄 In progress | Add human-first interactive defaults for TTY source-aware flows |
 | 11 | `US-050` | ✅ Done | Set up goreleaser (PR #90) |
 | 12 | `US-051` | ⏳ Open | Create Homebrew tap |
 | 13 | `US-052` | ✅ Done | Add CI-backed end-to-end coverage for the Go CLI (PR #120) |
