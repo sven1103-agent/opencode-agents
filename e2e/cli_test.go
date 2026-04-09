@@ -8,15 +8,19 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/creack/pty"
 )
 
 type commandResult struct {
@@ -149,39 +153,12 @@ func TestLocalArchiveFlow(t *testing.T) {
 func TestGitHubReleaseFlow(t *testing.T) {
 	env := testEnv(t)
 	projectRoot := t.TempDir()
-	bundleDir := filepath.Join(t.TempDir(), "opencode-config-bundle-v1.2.3")
-	if err := os.MkdirAll(bundleDir, 0o755); err != nil {
-		t.Fatalf("failed to create bundle dir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(bundleDir, "opencode-bundle.manifest.json"), []byte(`{
-		"manifest_version": "1.0.0",
-		"bundle_name": "fixture-github",
-		"bundle_version": "v1.2.3",
-		"presets": [
-			{"name": "fixture", "entrypoint": "opencode.json"}
-		]
-	}`), 0o644); err != nil {
-		t.Fatalf("failed to write manifest: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(bundleDir, "opencode.json"), []byte(`{"mode":"github-fixture"}`), 0o644); err != nil {
-		t.Fatalf("failed to write preset: %v", err)
-	}
-
-	archivePath := filepath.Join(t.TempDir(), "opencode-config-bundle-v1.2.3.tar.gz")
-	createTarGzFromDir(t, bundleDir, archivePath)
-	archiveData, err := os.ReadFile(archivePath)
-	if err != nil {
-		t.Fatalf("failed to read archive: %v", err)
-	}
-	archiveSHA := fmt.Sprintf("%x", sha256.Sum256(archiveData))
-	checksums := fmt.Sprintf("%s  %s\n", archiveSHA, filepath.Base(archivePath))
 
 	server := newGitHubReleaseE2EServer(t, githubReleaseE2EFixture{
-		repo:         "owner/repo",
-		tag:          "v1.2.3",
-		archiveName:  filepath.Base(archivePath),
-		archiveBytes: archiveData,
-		checksums:    checksums,
+		repo: "owner/repo",
+		releases: []githubReleaseE2ERelease{
+			newGitHubReleaseE2ERelease(t, "v1.2.3", false, "github-fixture"),
+		},
 	})
 	defer server.Close()
 
@@ -210,6 +187,70 @@ func TestGitHubReleaseFlow(t *testing.T) {
 	}
 	if prov.SourceName != "fixture-github" {
 		t.Fatalf("expected source name fixture-github, got %q", prov.SourceName)
+	}
+}
+
+func TestGitHubReleaseInteractiveVersionSelectionFlow(t *testing.T) {
+	env := testEnv(t)
+	projectRoot := t.TempDir()
+	server := newGitHubReleaseE2EServer(t, githubReleaseE2EFixture{
+		repo: "owner/repo",
+		releases: []githubReleaseE2ERelease{
+			newGitHubReleaseE2ERelease(t, "v1.3.0-alpha.1", true, "github-prerelease"),
+			newGitHubReleaseE2ERelease(t, "v1.2.3", false, "github-stable"),
+		},
+	})
+	defer server.Close()
+
+	env = append(env, "OC_GITHUB_API_BASE_URL="+server.URL)
+
+	addResult := runOC(t, env, "source", "add", "owner/repo", "--name", "fixture-github")
+	requireSuccess(t, addResult)
+	sourceID := extractSourceID(t, addResult.stdout)
+
+	applyResult := runOCInPTY(t, env, "1\n", "bundle", "apply", sourceID, "--preset", "fixture", "--project-root", projectRoot)
+	requireSuccess(t, applyResult)
+	requireContains(t, applyResult.stdout, "Available versions for owner/repo:")
+	requireContains(t, applyResult.stdout, "v1.3.0-alpha.1 (prerelease)")
+
+	configData, err := os.ReadFile(filepath.Join(projectRoot, "opencode.json"))
+	if err != nil {
+		t.Fatalf("failed to read applied config: %v", err)
+	}
+	requireContains(t, string(configData), `"mode":"github-prerelease"`)
+
+	prov := readProvenance(t, filepath.Join(projectRoot, ".opencode", "bundle-provenance.json"))
+	if prov.BundleVersion != "v1.3.0-alpha.1" {
+		t.Fatalf("expected bundle version v1.3.0-alpha.1, got %q", prov.BundleVersion)
+	}
+	if prov.PresetName != "fixture" {
+		t.Fatalf("expected preset fixture, got %q", prov.PresetName)
+	}
+}
+
+func TestGitHubReleaseApplyWithoutVersionNonInteractiveFails(t *testing.T) {
+	env := testEnv(t)
+	projectRoot := t.TempDir()
+	server := newGitHubReleaseE2EServer(t, githubReleaseE2EFixture{
+		repo: "owner/repo",
+		releases: []githubReleaseE2ERelease{
+			newGitHubReleaseE2ERelease(t, "v1.3.0-alpha.1", true, "github-prerelease"),
+			newGitHubReleaseE2ERelease(t, "v1.2.3", false, "github-stable"),
+		},
+	})
+	defer server.Close()
+
+	env = append(env, "OC_GITHUB_API_BASE_URL="+server.URL)
+
+	addResult := runOC(t, env, "source", "add", "owner/repo", "--name", "fixture-github")
+	requireSuccess(t, addResult)
+	sourceID := extractSourceID(t, addResult.stdout)
+
+	applyResult := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "apply", sourceID, "--preset", "fixture", "--project-root", projectRoot)
+	requireFailure(t, applyResult)
+	requireContains(t, applyResult.stderr, "--version is required for github-release sources outside interactive mode")
+	if strings.Contains(applyResult.stderr, "Select a version") || strings.Contains(applyResult.stdout, "Select a version") {
+		t.Fatalf("unexpected interactive prompt in non-interactive flow: stdout=%q stderr=%q", applyResult.stdout, applyResult.stderr)
 	}
 }
 
@@ -285,6 +326,43 @@ func testEnv(t *testing.T) []string {
 func runOC(t *testing.T, env []string, args ...string) commandResult {
 	t.Helper()
 	return runOCWithStdin(t, env, nil, args...)
+}
+
+func runOCInPTY(t *testing.T, env []string, input string, args ...string) commandResult {
+	t.Helper()
+	binaryPath := os.Getenv("OC_E2E_BINARY")
+	if binaryPath == "" {
+		t.Skip("OC_E2E_BINARY not set; skipping black-box CLI E2E tests")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, binaryPath, args...)
+	cmd.Env = env
+	ptmx, err := pty.Start(cmd)
+	if err != nil {
+		t.Fatalf("failed to start PTY command: %v", err)
+	}
+	defer ptmx.Close()
+
+	var output bytes.Buffer
+	readDone := make(chan error, 1)
+	go func() {
+		_, copyErr := io.Copy(&output, ptmx)
+		readDone <- copyErr
+	}()
+
+	if input != "" {
+		if _, err := ptmx.Write([]byte(input)); err != nil {
+			t.Fatalf("failed to write PTY input: %v", err)
+		}
+	}
+	err = cmd.Wait()
+	_ = ptmx.Close()
+	<-readDone
+
+	return commandResult{stdout: output.String(), stderr: output.String(), err: err}
 }
 
 func runOCWithStdin(t *testing.T, env []string, stdin *strings.Reader, args ...string) commandResult {
@@ -456,8 +534,13 @@ func createTarGzFromDir(t *testing.T, sourceDir, archivePath string) {
 }
 
 type githubReleaseE2EFixture struct {
-	repo         string
+	repo     string
+	releases []githubReleaseE2ERelease
+}
+
+type githubReleaseE2ERelease struct {
 	tag          string
+	prerelease   bool
 	archiveName  string
 	archiveBytes []byte
 	checksums    string
@@ -466,36 +549,105 @@ type githubReleaseE2EFixture struct {
 func newGitHubReleaseE2EServer(t *testing.T, fixture githubReleaseE2EFixture) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/"+fixture.repo+"/releases", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(buildReleaseListResponse(r.Host, fixture.releases))
+	})
 	mux.HandleFunc("/repos/"+fixture.repo+"/releases/latest", func(w http.ResponseWriter, r *http.Request) {
-		writeReleaseResponse(w, r, fixture)
+		for _, release := range fixture.releases {
+			if release.prerelease {
+				continue
+			}
+			writeReleaseResponse(w, r, fixture.repo, release)
+			return
+		}
+		http.NotFound(w, r)
 	})
-	mux.HandleFunc("/repos/"+fixture.repo+"/releases/tags/"+fixture.tag, func(w http.ResponseWriter, r *http.Request) {
-		writeReleaseResponse(w, r, fixture)
-	})
-	mux.HandleFunc("/downloads/"+fixture.repo+"/releases/download/"+fixture.tag+"/"+fixture.archiveName, func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/gzip")
-		_, _ = w.Write(fixture.archiveBytes)
-	})
-	mux.HandleFunc("/downloads/"+fixture.repo+"/releases/download/"+fixture.tag+"/opencode-config-bundle-"+fixture.tag+"-checksums.txt", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		_, _ = w.Write([]byte(fixture.checksums))
-	})
+	for _, release := range fixture.releases {
+		release := release
+		mux.HandleFunc("/repos/"+fixture.repo+"/releases/tags/"+release.tag, func(w http.ResponseWriter, r *http.Request) {
+			writeReleaseResponse(w, r, fixture.repo, release)
+		})
+		mux.HandleFunc("/downloads/"+fixture.repo+"/releases/download/"+release.tag+"/"+release.archiveName, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/gzip")
+			_, _ = w.Write(release.archiveBytes)
+		})
+		mux.HandleFunc("/downloads/"+fixture.repo+"/releases/download/"+release.tag+"/opencode-config-bundle-"+release.tag+"-checksums.txt", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/plain")
+			_, _ = w.Write([]byte(release.checksums))
+		})
+	}
 	return httptest.NewServer(mux)
 }
 
-func writeReleaseResponse(w http.ResponseWriter, r *http.Request, fixture githubReleaseE2EFixture) {
+func writeReleaseResponse(w http.ResponseWriter, r *http.Request, repo string, release githubReleaseE2ERelease) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"tag_name": fixture.tag,
+		"tag_name":   release.tag,
+		"prerelease": release.prerelease,
 		"assets": []map[string]string{
 			{
-				"name":                 fixture.archiveName,
-				"browser_download_url": fmt.Sprintf("http://%s/downloads/%s/releases/download/%s/%s", r.Host, fixture.repo, fixture.tag, fixture.archiveName),
+				"name":                 release.archiveName,
+				"browser_download_url": fmt.Sprintf("http://%s/downloads/%s/releases/download/%s/%s", r.Host, repo, release.tag, release.archiveName),
 			},
 			{
-				"name":                 "opencode-config-bundle-" + fixture.tag + "-checksums.txt",
-				"browser_download_url": fmt.Sprintf("http://%s/downloads/%s/releases/download/%s/%s", r.Host, fixture.repo, fixture.tag, "opencode-config-bundle-"+fixture.tag+"-checksums.txt"),
+				"name":                 "opencode-config-bundle-" + release.tag + "-checksums.txt",
+				"browser_download_url": fmt.Sprintf("http://%s/downloads/%s/releases/download/%s/%s", r.Host, repo, release.tag, "opencode-config-bundle-"+release.tag+"-checksums.txt"),
 			},
 		},
 	})
+}
+
+func buildReleaseListResponse(host string, releases []githubReleaseE2ERelease) []map[string]any {
+	responses := make([]map[string]any, 0, len(releases))
+	for _, release := range releases {
+		responses = append(responses, map[string]any{
+			"tag_name":   release.tag,
+			"prerelease": release.prerelease,
+			"assets": []map[string]string{{
+				"name":                 release.archiveName,
+				"browser_download_url": fmt.Sprintf("http://%s/downloads/unused/releases/download/%s/%s", host, release.tag, release.archiveName),
+			}},
+		})
+	}
+	sort.SliceStable(responses, func(i, j int) bool { return i < j })
+	return responses
+}
+
+func newGitHubReleaseE2ERelease(t *testing.T, tag string, prerelease bool, mode string) githubReleaseE2ERelease {
+	t.Helper()
+	bundleDir := filepath.Join(t.TempDir(), "opencode-config-bundle-"+tag)
+	if err := os.MkdirAll(bundleDir, 0o755); err != nil {
+		t.Fatalf("failed to create bundle dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(bundleDir, "opencode-bundle.manifest.json"), []byte(fmt.Sprintf(`{
+		"manifest_version": "1.0.0",
+		"bundle_name": "fixture-github",
+		"bundle_version": %q,
+		"presets": [
+			{"name": "fixture", "entrypoint": "opencode.json"}
+		]
+	}`, tag)), 0o644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(bundleDir, "opencode.json"), []byte(fmt.Sprintf(`{"mode":"%s"}`, mode)), 0o644); err != nil {
+		t.Fatalf("failed to write preset: %v", err)
+	}
+
+	archiveName := "opencode-config-bundle-" + tag + ".tar.gz"
+	archivePath := filepath.Join(t.TempDir(), archiveName)
+	createTarGzFromDir(t, bundleDir, archivePath)
+	archiveData, err := os.ReadFile(archivePath)
+	if err != nil {
+		t.Fatalf("failed to read archive: %v", err)
+	}
+	archiveSHA := fmt.Sprintf("%x", sha256.Sum256(archiveData))
+
+	return githubReleaseE2ERelease{
+		tag:          tag,
+		prerelease:   prerelease,
+		archiveName:  archiveName,
+		archiveBytes: archiveData,
+		checksums:    fmt.Sprintf("%s  %s\n", archiveSHA, archiveName),
+	}
 }

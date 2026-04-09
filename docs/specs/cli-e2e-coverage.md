@@ -53,6 +53,9 @@ It is the durable inventory for what is already covered, what is verified in CI,
 | List registered sources | `oc source list` | registry | Implemented | ✅ | Covered inside the local directory flow |
 | Apply preset from local directory source | `oc bundle apply <id> --preset <name>` | local directory | Implemented | ✅ | Verifies written config and provenance |
 | Apply preset from local archive source | `oc bundle apply <id> --preset <name>` | local archive | Implemented | ✅ | Exercises tar extraction path |
+| Apply preset from GitHub release source with explicit version | `oc bundle apply <id> --version <tag> --preset <name>` | GitHub release | Implemented | ✅ | Uses `httptest` remote and checksum verification |
+| Apply preset from GitHub release source with interactive version selection | `oc bundle apply <id> --preset <name>` in PTY session | GitHub release | Implemented | ✅ | Verifies version prompt, prerelease labeling, and provenance for selected release |
+| Refuse non-interactive GitHub apply without `--version` when multiple releases exist | `oc bundle apply <id> --preset <name>` | GitHub release | Implemented | ✅ | Verifies actionable error and no prompt leakage in non-interactive mode |
 | Show applied bundle provenance | `oc bundle status --project-root <dir>` | project provenance | Implemented | ✅ | Reads `.opencode/bundle-provenance.json` through CLI |
 | Refuse overwrite without force | `oc bundle apply <id> --preset <name>` | local directory | Implemented | ✅ | Must fail when output already exists |
 | Reject missing manifest source | `oc source add <dir>` | invalid local directory | Implemented | ✅ | Validates manifest presence check |
@@ -63,10 +66,9 @@ It is the durable inventory for what is already covered, what is verified in CI,
 
 | Gap | Reason | Planned Follow-up |
 |---|---|---|
-| GitHub release source E2E | Current implementation still has remote operations marked not implemented in this branch line | Add once remote source behavior is stable end to end |
-| `httptest`-backed remote source coverage | Not needed for initial local-flow milestone | Add with remote-source implementation follow-up |
 | `bundle update` E2E | Current command behavior is intentionally limited and network-dependent | Add when update behavior is production-ready |
 | Windows runner coverage | Windows is out of current scope | Revisit only if product scope changes |
+| GitHub release source list/update edge cases | Basic apply flows are covered, but source listing and future update UX still need broader remote-source E2E | Extend when update behavior and broader source-capability UX are finalized |
 
 ## Fixture Strategy
 
@@ -87,3 +89,4 @@ It is the durable inventory for what is already covered, what is verified in CI,
 - 2026-04-01: Document created for `US-052` initial local-flow coverage planning
 - 2026-04-01: Initial local-flow scenarios implemented in `e2e/` and wired into `.github/workflows/e2e-cli.yml`
 - 2026-04-01: Marked initial local-flow scenarios as CI-verified after successful `main` workflow run `23850747833` on Linux and macOS
+- 2026-04-09: Marked GitHub release apply coverage as implemented for explicit `--version`, interactive version selection, and non-interactive version-selection failure paths
