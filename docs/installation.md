@@ -25,7 +25,7 @@ This installs the `oc` binary to `$GOPATH/bin` (or `$HOME/go/bin`). Make sure th
 **Install a specific version:**
 
 ```sh
-go install github.com/sven1103-agent/opencode-config-cli@v1.0.0-alpha.4
+go install github.com/sven1103-agent/opencode-config-cli@v1.0.0-alpha.5
 ```
 
 ### Method 2: Manual Download
@@ -34,7 +34,7 @@ Download the correct tarball for your platform from [GitHub Releases](https://gi
 
 ```sh
 # Example: macOS ARM64
-VERSION=v1.0.0-alpha.4
+VERSION=v1.0.0-alpha.5
 curl -L "https://github.com/sven1103-agent/opencode-config-cli/releases/download/${VERSION}/oc_${VERSION#v}_darwin_arm64.tar.gz" | tar xz
 mv oc ~/.local/bin/
 ```
@@ -61,7 +61,7 @@ To make this permanent, add the line above to your shell profile (`~/.zshrc` or 
 oc version
 ```
 
-You should see output like `oc version 1.0.0-alpha.4`.
+You should see output like `oc version 1.0.0-alpha.5`.
 
 ## PATH Issues
 
