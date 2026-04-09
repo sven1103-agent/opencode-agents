@@ -10,7 +10,7 @@
 
 ## What is this?
 
-A CLI tool (`oc`) that manages OpenCode configuration bundles from external sources, enabling versioned, validated configs for AI agents.
+A CLI tool (`oc`) that manages OpenCode [configuration bundles](docs/config-bundles.md) from external sources, enabling versioned, validated configs for AI agents.
 
 ## Quick Start (30 seconds)
 
