@@ -18,8 +18,13 @@ A CLI tool (`oc`) that manages OpenCode [configuration bundles](docs/config-bund
 # Install via Go (macOS/Linux)
 go install github.com/sven1103-agent/opencode-config-cli@latest
 
-# (optional) Create an alias to the default installation location
-alias oc='$HOME/go/bin/opencode-config-cli'
+# Create an alias to the default installation location
+# zsh
+echo "alias oc='$HOME/go/bin/opencode-config-cli'" >> ~/.zshrc
+# bash
+echo "alias oc='$HOME/go/bin/opencode-config-cli'" >> ~/.bashrc
+# fish
+echo "alias oc='$HOME/go/bin/opencode-config-cli'" >> ~/.config/fish/config.fish
 
 # Register a config bundle
 oc source add qbicsoftware/opencode-config-bundle --name qbic
