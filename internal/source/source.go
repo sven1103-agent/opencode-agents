@@ -65,7 +65,32 @@ func (e *AmbiguousSourceRefError) Error() string {
 var ownerRepoPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
 
 // RegistryPath returns the path to the source registry file.
+// It respects XDG_CONFIG_HOME for cross-platform config location.
+// Defaults to ~/.config (XDG standard) if XDG_CONFIG_HOME is not set.
 func RegistryPath() (string, error) {
+	configDir := os.Getenv("XDG_CONFIG_HOME")
+	if configDir == "" {
+		home := os.Getenv("HOME")
+		if home == "" {
+			return "", fmt.Errorf("failed to get HOME directory")
+		}
+		configDir = filepath.Join(home, ".config")
+	}
+	return filepath.Join(configDir, "opencode-helper", "sources.json"), nil
+}
+
+// LegacyRegistryPath returns the path to the legacy config-sources.json file.
+func LegacyRegistryPath() string {
+	configDir := os.Getenv("XDG_CONFIG_HOME")
+	if configDir == "" {
+		home := os.Getenv("HOME")
+		configDir = filepath.Join(home, ".config")
+	}
+	return filepath.Join(configDir, "opencode-helper", "config-sources.json")
+}
+
+// AppSupportRegistryPath returns the path to the macOS Application Support config.
+func AppSupportRegistryPath() (string, error) {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get user config dir: %w", err)
@@ -74,6 +99,9 @@ func RegistryPath() (string, error) {
 }
 
 // LoadRegistry loads the source registry from disk.
+// If the new format doesn't exist, it attempts to migrate from legacy locations:
+// 1. ~/.config/opencode-helper/config-sources.json (shell script legacy)
+// 2. ~/Library/Application Support/opencode-helper/sources.json (pre-XDG Go CLI)
 func LoadRegistry() (*Registry, error) {
 	path, err := RegistryPath()
 	if err != nil {
@@ -83,7 +111,8 @@ func LoadRegistry() (*Registry, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &Registry{Version: 1, Sources: []Source{}}, nil
+			// Try legacy paths for migration
+			return loadLegacyRegistry()
 		}
 		return nil, fmt.Errorf("failed to read registry: %w", err)
 	}
@@ -94,6 +123,84 @@ func LoadRegistry() (*Registry, error) {
 	}
 
 	return &registry, nil
+}
+
+// LegacySource represents the legacy source format (without version field).
+type LegacySource struct {
+	ID        string     `json:"id"`
+	Location  string     `json:"location"`
+	Type      SourceType `json:"type"`
+	Name      string     `json:"name"`
+	CreatedAt string     `json:"added_at"`
+}
+
+// LegacyRegistry represents the legacy registry format.
+type LegacyRegistry struct {
+	Sources []LegacySource `json:"sources"`
+}
+
+// loadLegacyRegistry attempts to migrate from legacy config locations.
+// It checks:
+// 1. ~/.config/opencode-helper/config-sources.json (shell script legacy)
+// 2. ~/Library/Application Support/opencode-helper/sources.json (pre-XDG Go CLI)
+func loadLegacyRegistry() (*Registry, error) {
+	// Try shell script legacy location first
+	legacyPath := LegacyRegistryPath()
+	if data, err := os.ReadFile(legacyPath); err == nil {
+		if registry, err := migrateLegacyData(data, legacyPath); err == nil {
+			return registry, nil
+		}
+	}
+
+	// Try macOS Application Support location
+	appSupportPath, err := AppSupportRegistryPath()
+	if err != nil {
+		return &Registry{Version: 1, Sources: []Source{}}, nil
+	}
+	if data, err := os.ReadFile(appSupportPath); err == nil {
+		return migrateLegacyData(data, appSupportPath)
+	}
+
+	return &Registry{Version: 1, Sources: []Source{}}, nil
+}
+
+// migrateLegacyData migrates legacy JSON data (array or object format) to new Registry.
+func migrateLegacyData(data []byte, legacyPath string) (*Registry, error) {
+	// Try parsing as array first (legacy format)
+	var legacySources []LegacySource
+	if err := json.Unmarshal(data, &legacySources); err != nil {
+		// Try parsing as object with "sources" field
+		var legacy LegacyRegistry
+		if err := json.Unmarshal(data, &legacy); err != nil {
+			return nil, fmt.Errorf("failed to parse legacy registry: %w", err)
+		}
+		legacySources = legacy.Sources
+	}
+
+	// Migrate to new format
+	registry := &Registry{Version: 1, Sources: make([]Source, len(legacySources))}
+	for i, src := range legacySources {
+		registry.Sources[i] = Source{
+			ID:        src.ID,
+			Location:  src.Location,
+			Type:      src.Type,
+			Name:      src.Name,
+			CreatedAt: src.CreatedAt,
+		}
+	}
+
+	// Migrate: save to new location
+	if err := SaveRegistry(registry); err != nil {
+		return nil, fmt.Errorf("failed to migrate registry: %w", err)
+	}
+
+	// Remove legacy file after successful migration
+	if err := os.Remove(legacyPath); err != nil {
+		// Log but don't fail - migration succeeded
+		fmt.Printf("warning: failed to remove legacy config: %v\n", err)
+	}
+
+	return registry, nil
 }
 
 // SaveRegistry saves the source registry to disk.

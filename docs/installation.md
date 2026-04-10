@@ -85,6 +85,21 @@ go install github.com/sven1103-agent/opencode-config-cli@latest
 
 Or download a new release manually from [GitHub Releases](https://github.com/sven1103-agent/opencode-config-cli/releases).
 
+## Configuration Location
+
+The CLI stores registered sources in a JSON file. By default it follows the XDG Base Directory specification:
+
+- **Default location**: `~/.config/opencode-helper/sources.json`
+- **Custom location**: Set `XDG_CONFIG_HOME` environment variable to override
+
+### Legacy Migration
+
+If you used an older version of the CLI (pre-alpha.7), your sources may be in:
+- `~/.config/opencode-helper/config-sources.json` (shell script version)
+- `~/Library/Application Support/opencode-helper/sources.json` (pre-XDG Go CLI)
+
+These will be automatically migrated to the new XDG standard location on first run.
+
 ## Next Steps
 
 - [Configure a config bundle](config-bundles.md)
