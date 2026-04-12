@@ -43,6 +43,6 @@ Type "oc bundle status --project-root demo-project"
 Enter
 Sleep 1.2s
 
-Type "ls demo-project"
+Type "tree -a demo-project"
 Enter
 Sleep 2s

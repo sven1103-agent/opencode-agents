@@ -31,7 +31,7 @@ oc bundle apply --project-root demo-project
 # select version 1
 # select preset 1 after the preset list is shown
 oc bundle status --project-root demo-project
-ls demo-project
+tree -a demo-project
 ```
 
 ## Recording Notes
@@ -54,7 +54,7 @@ Use this sequence when recording:
 5. Select a bundle version.
 6. Show the preset list and choose one entry from the list so viewers can see where the preset comes from.
 7. Show bundle provenance for the generated project config.
-8. End by showing that `opencode.json` exists in the project directory.
+8. End by showing the generated project tree, including `.opencode` provenance metadata.
 
 ## Environment Prep
 
