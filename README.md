@@ -10,9 +10,9 @@
 
 ## CLI Demo
 
-![CLI demo](docs/demo.svg)
+![CLI demo](docs/demo.gif)
 
-Source recording: [docs/demo.cast](docs/demo.cast)  
+Source tape: [docs/demo.tape](docs/demo.tape)  
 Repeatable capture steps: [docs/demo-playbook.md](docs/demo-playbook.md)
 
 ## What is this?

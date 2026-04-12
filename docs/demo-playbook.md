@@ -73,9 +73,14 @@ mkdir -p "$XDG_CONFIG_HOME"
 
 Recommended tools:
 
-- `asciinema` for terminal capture
-- `agg` or an equivalent renderer for README-ready GIF output
+- `vhs` for reproducible terminal capture and GIF rendering
 - `scripts/record-demo.sh` in this repo for the current committed capture flow
+
+Install `vhs` with Homebrew if needed:
+
+```sh
+brew install vhs
+```
 
 Example capture flow:
 
@@ -83,9 +88,9 @@ Example capture flow:
 scripts/record-demo.sh
 ```
 
-This script builds the CLI, records `docs/demo.cast`, and renders `docs/demo.svg` from the same source session.
+This script builds the CLI in a temporary workspace and renders `docs/demo.gif` from `docs/demo.tape`.
 
-Keep the `.cast` file as the source artifact so the README asset can be re-rendered for later releases without inventing a new script.
+Keep `docs/demo.tape` as the source artifact so the README asset can be re-rendered for later releases without inventing a new script.
 
 ## Re-record Checklist
 
@@ -94,6 +99,6 @@ Before recording against a new CLI release:
 1. Confirm the commands in this playbook still match the current CLI.
 2. Confirm the selected preset name still exists in the referenced bundle.
 3. Confirm the command output still fits inside the recording frame.
-4. Re-record the `.cast` file.
-5. Re-render the README asset from the updated recording.
+4. Re-run `scripts/record-demo.sh`.
+5. Re-render the README asset from the updated tape.
 6. Update README references if the demo asset path changes.
