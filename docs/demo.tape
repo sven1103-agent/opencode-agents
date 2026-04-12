@@ -31,13 +31,13 @@ Sleep 1.2s
 
 Type "oc bundle apply --project-root demo-project"
 Enter
-Sleep 800ms
+Sleep 1200ms
 Type "1"
 Enter
-Sleep 800ms
+Sleep 2600ms
 Type "1"
 Enter
-Sleep 2200ms
+Sleep 3200ms
 Type "1"
 Enter
 Sleep 1.5s
