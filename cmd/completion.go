@@ -21,20 +21,18 @@ Bash:
 
 Zsh:
   # Option 1: Source on the fly (recommended)
-  # Add to end of ~/.zshrc:
+  # Add to end of ~/.zshrc (after compinit):
   source <(oc completion zsh)
+  # If you use alias (alias oc="opencode-config-cli"), also run:
+  compdef _oc opencode-config-cli
 
   # Option 2: Save to completions dir
   oc completion zsh > ~/.zsh/completions/_oc
   # Ensure ~/.zshrc has: fpath=(~/.zsh/completions $fpath)
+  # Then add: compdef _oc opencode-config-cli
 
   # Clear completion cache and restart:
   rm -f ~/.zcompdump && exec zsh
-
-  # Note: If you get "parse error" when pressing TAB, try:
-  # 1. Ensure you're using the binary name (oc), not an alias
-  # 2. Or add explicit completion binding after sourcing:
-  #    compdef _oc oc
 
 Fish:
   oc completion fish > ~/.config/fish/completions/oc.fish
