@@ -8,6 +8,7 @@ Welcome to the OpenCode Config CLI documentation. This CLI manages OpenCode conf
 |-------|-------------|
 | [Installation](installation.md) | Install the CLI on macOS or Linux |
 | [Config Bundles](config-bundles.md) | Understand bundles and create your own |
+| [CLI Demo Playbook](demo-playbook.md) | Repeatable script for recording README terminal demos |
 | [CLI Reference](cli-reference.md) | Full command reference |
 | [Troubleshooting](troubleshooting.md) | Common issues and solutions |
 | [Legacy Docs](legacy/bash-helper.md) | Deprecated Bash version |

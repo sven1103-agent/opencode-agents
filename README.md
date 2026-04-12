@@ -81,6 +81,7 @@ Run `oc completion --help` for full instructions.
 | [docs/README.md](docs/README.md) | User documentation hub |
 | [docs/installation.md](docs/installation.md) | Install on macOS/Linux |
 | [docs/config-bundles.md](docs/config-bundles.md) | Understand bundles + create your own |
+| [docs/demo-playbook.md](docs/demo-playbook.md) | Repeatable terminal demo script for README recordings |
 | [docs/cli-reference.md](docs/cli-reference.md) | Full command reference |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | FAQ and common issues |
 
