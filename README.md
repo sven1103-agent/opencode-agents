@@ -48,10 +48,10 @@ oc completion bash | sudo tee /etc/bash_completion.d/oc > /dev/null
 # Zsh: source on the fly (recommended)
 source <(oc completion zsh)
 
-# Or save to completions dir (may require sourcing after compinit):
+# Or save to completions dir:
 # oc completion zsh > ~/.zsh/completions/_oc
 # Add to ~/.zshrc: fpath=(~/.zsh/completions $fpath)
-# Clear cache and restart: rm -f ~/.zcompdump && exec zsh
+# Clear cache: rm -f ~/.zcompdump && exec zsh
 
 # Fish
 oc completion fish > ~/.config/fish/completions/oc.fish

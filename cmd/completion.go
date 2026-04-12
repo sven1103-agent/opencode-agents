@@ -13,32 +13,33 @@ var completionCmd = &cobra.Command{
 	Long: `Generate shell completion scripts for supported shells.
 
 Bash:
-  # Source completion in your shell
+  # Source on the fly
   source <(oc completion bash)
 
-  # Or install permanently (requires sudo for /etc, or use ~/.local/):
+  # Or install permanently
   oc completion bash | sudo tee /etc/bash_completion.d/oc > /dev/null
 
 Zsh:
-  # Save completion file
-  oc completion zsh > ~/.zsh/completions/_oc
-
-  # Add to ~/.zshrc (MUST be after compinit):
-  # Note: The completion file requires compinit to be loaded first.
-  # If you see "compdef: command not found", source completion after compinit.
-  # Example: source <(oc completion zsh)
-
-  # Alternative: source on the fly (works automatically)
+  # Option 1: Source on the fly (recommended)
+  # Add to end of ~/.zshrc:
   source <(oc completion zsh)
+
+  # Option 2: Save to completions dir
+  oc completion zsh > ~/.zsh/completions/_oc
+  # Ensure ~/.zshrc has: fpath=(~/.zsh/completions $fpath)
 
   # Clear completion cache and restart:
   rm -f ~/.zcompdump && exec zsh
+
+  # Note: If you get "parse error" when pressing TAB, try:
+  # 1. Ensure you're using the binary name (oc), not an alias
+  # 2. Or add explicit completion binding after sourcing:
+  #    compdef _oc oc
 
 Fish:
   oc completion fish > ~/.config/fish/completions/oc.fish
 
 PowerShell:
-  # Add to your PowerShell profile
   oc completion powershell >> $PROFILE
 
 For more details, see: https://github.com/sven1103-agent/opencode-config-cli#shell-completion
