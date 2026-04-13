@@ -2,6 +2,8 @@
 package source
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -11,8 +13,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 // SourceType represents the type of a config source.
@@ -365,6 +365,39 @@ func ValidateSource(location string, sourceType SourceType) error {
 	return nil
 }
 
+func normalizeLocation(location string, sourceType SourceType) string {
+	switch sourceType {
+	case SourceTypeGitHubRelease:
+		ref, err := parseGitHubRef(location)
+		if err != nil {
+			return location
+		}
+		return strings.ToLower(ref.Repo)
+	case SourceTypeLocalDirectory:
+		clean := filepath.Clean(location)
+		if strings.HasPrefix(clean, "~/") {
+			home, err := os.UserHomeDir()
+			if err == nil {
+				clean = filepath.Join(home, strings.TrimPrefix(clean, "~/"))
+			}
+		}
+		abs, err := filepath.Abs(clean)
+		if err != nil {
+			return clean
+		}
+		return abs
+	case SourceTypeLocalArchive:
+		return filepath.Clean(location)
+	default:
+		return location
+	}
+}
+
+func generateSourceID(normalizedLocation string) string {
+	hash := sha256.Sum256([]byte(normalizedLocation))
+	return hex.EncodeToString(hash[:])[:8]
+}
+
 // AddSource adds a new source to the registry.
 func AddSource(location string, name string) (*Source, error) {
 	// Detect source type
@@ -384,15 +417,18 @@ func AddSource(location string, name string) (*Source, error) {
 		return nil, err
 	}
 
-	// Check for duplicate locations
+	// Normalize location for consistent ID generation and duplicate check
+	normalizedLocation := normalizeLocation(location, sourceType)
+
+	// Check for duplicate locations (compare normalized)
 	for _, s := range registry.Sources {
-		if s.Location == location {
+		if normalizeLocation(s.Location, s.Type) == normalizedLocation {
 			return nil, fmt.Errorf("source already registered at location: %s (id: %s)", location, s.ID)
 		}
 	}
 
-	// Generate ID if name not provided
-	id := uuid.New().String()[:8]
+	// Generate ID from normalized location
+	id := generateSourceID(normalizedLocation)
 	if name == "" {
 		if sourceType == SourceTypeGitHubRelease {
 			ref, err := parseGitHubRef(location)
