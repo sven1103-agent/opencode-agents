@@ -1040,6 +1040,47 @@ Likely command shape:
 Satisfies:
 - [REQ-F-031](#req-f-031)
 
+### <a id="feat-019"></a>FEAT-019 - Bundle Init
+
+Description:
+- Scaffold a new bundle directory with minimal manifest and preset structure
+
+Likely command shape:
+- `oc bundle init [--name NAME] [--version VERSION] [--output DIR] [--force]`
+- Interactive mode by default (prompts for name, version)
+
+Satisfies:
+- New user story for bundle creation tooling
+
+---
+
+### <a id="feat-020"></a>FEAT-020 - Bundle Validate
+
+Description:
+- Validate bundle structure, manifest, and preset files
+
+Likely command shape:
+- `oc bundle validate [PATH]`
+- Accepts directory or archive (.tar.gz) path
+
+Satisfies:
+- New user story for bundle validation
+
+---
+
+### <a id="feat-021"></a>FEAT-021 - Bundle Pack
+
+Description:
+- Package a bundle directory into a tarball for GitHub Release
+
+Likely command shape:
+- `oc bundle pack [PATH] [--output FILE] [--force]`
+
+Satisfies:
+- New user story for bundle packaging
+
+---
+
 ### <a id="feat-018"></a>FEAT-018 - Remote Bundle Verification
 
 Description:
@@ -1120,6 +1161,9 @@ Satisfies:
 | [FEAT-016](#feat-016) | Feature | [REQ-F-030](#req-f-030), [US-036](#us-036), [US-037](#us-037) |
 | [FEAT-017](#feat-017) | Feature | [REQ-F-031](#req-f-031), [US-035](#us-035), [US-038](#us-038) |
 | [FEAT-018](#feat-018) | Feature | [REQ-F-032](#req-f-032), [US-031](#us-031), [US-039](#us-039) |
+| [FEAT-019](#feat-019) | Feature | [US-053](#us-053) |
+| [FEAT-020](#feat-020) | Feature | [US-054](#us-054) |
+| [FEAT-021](#feat-021) | Feature | [US-055](#us-055) |
 | [US-001](#us-001) | User Story | [FEAT-002](#feat-002), [REQ-F-003](#req-f-003), [REQ-F-001a](#req-f-001a), [REQ-F-009](#req-f-009) |
 | [US-002](#us-002) | User Story | [FEAT-001](#feat-001), [REQ-F-004](#req-f-004), [REQ-F-005](#req-f-005), [REQ-F-010](#req-f-010), [REQ-F-011](#req-f-011), [REQ-NF-002](#req-nf-002) |
 | [US-003](#us-003) | User Story | [FEAT-003](#feat-003), [REQ-F-004](#req-f-004), [REQ-F-010](#req-f-010), [REQ-F-011](#req-f-011) |
@@ -1171,6 +1215,9 @@ Satisfies:
 | [US-050](#us-050) | User Story | (Go Migration) |
 | [US-051](#us-051) | User Story | (Go Migration) |
 | [US-052](#us-052) | User Story | (Go Migration) |
+| [US-053](#us-053) | User Story | [FEAT-019](#feat-019) |
+| [US-054](#us-054) | User Story | [FEAT-020](#feat-020) |
+| [US-055](#us-055) | User Story | [FEAT-021](#feat-021) |
 
 ---
 
@@ -1499,6 +1546,94 @@ Acceptance criteria:
 - The workflow runs on `ubuntu-latest` and `macos-latest`.
 - Initial E2E coverage includes `version`, local source registration, local bundle apply, local archive apply, provenance status, and key offline failure paths.
 - Covered and deferred scenarios are tracked in a dedicated E2E coverage reference document.
+
+---
+
+### <a id="us-053"></a>US-053 - Bundle Init
+
+Priority:
+- P1
+
+Status:
+- Open
+
+Type:
+- User-facing (maintainer)
+
+Related stories:
+- [FEAT-019](#feat-019)
+
+Story:
+- As a bundle maintainer, I want to scaffold a new bundle directory structure so that I can quickly start creating a new config bundle.
+
+Acceptance criteria:
+- `oc bundle init [--name NAME] [--version VERSION] [--output DIR] [--force]` creates a new bundle directory
+- Interactive mode by default (prompts for bundle name and version)
+- Non-interactive mode with `--name` flag (version defaults to "0.0.1")
+- Creates directory structure:
+  - `<output>/opencode-bundle.manifest.json` - manifest with one default preset entry
+  - `<output>/presets/default.json` - placeholder preset file
+  - `<output>/README.md` - minimal README template
+- Fails if output directory exists (unless `--force`)
+- Generated bundle passes `oc bundle validate`
+
+---
+
+### <a id="us-054"></a>US-054 - Bundle Validate
+
+Priority:
+- P1
+
+Status:
+- Open
+
+Type:
+- User-facing (maintainer)
+
+Related stories:
+- [FEAT-020](#feat-020)
+
+Story:
+- As a bundle maintainer, I want to validate my bundle structure and manifest so that I can ensure it will work with `oc bundle apply`.
+
+Acceptance criteria:
+- `oc bundle validate [PATH]` validates a bundle directory or archive
+- Accepts directory path (e.g., `./my-bundle`) or archive path (e.g., `./bundle.tar.gz`)
+- Default path is current directory if not specified
+- Validates:
+  - Manifest exists and is valid JSON
+  - Manifest conforms to schema (required fields present)
+  - All preset entrypoint files exist
+  - Preset files are valid JSON
+- Exit code 0 on success
+- Exit code >0 on failure with descriptive error messages
+
+---
+
+### <a id="us-055"></a>US-055 - Bundle Pack
+
+Priority:
+- P1
+
+Status:
+- Open
+
+Type:
+- User-facing (maintainer)
+
+Related stories:
+- [FEAT-021](#feat-021)
+
+Story:
+- As a bundle maintainer, I want to package my bundle into a tarball so that I can publish it as a GitHub Release asset.
+
+Acceptance criteria:
+- `oc bundle pack [PATH] [--output FILE] [--force]` packages a bundle directory
+- Default path is current directory
+- Default output filename is `<bundle-name>-<bundle-version>.tar.gz` derived from manifest
+- Creates a .tar.gz archive containing the bundle directory
+- Fails if output file exists (unless `--force`)
+- Generated archive passes `oc bundle validate` when extracted
 
 ---
 
