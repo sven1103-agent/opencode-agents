@@ -37,35 +37,35 @@ var bundleCmd = &cobra.Command{
 	Short: "Manage OpenCode configuration bundles",
 	Long: `Manage OpenCode configuration bundles.
 
-Apply, track, and update configuration bundles from registered sources.
+Install, track, and update configuration bundles from registered sources.
 
 Examples:
-	  oc bundle apply qbic --preset default
-	  oc bundle apply qbic
+	  oc bundle install qbic --preset default
+	  oc bundle install qbic
 	  oc bundle status
 	  oc bundle update abc12345`,
 }
 
-// bundleApplyCmd applies a preset from a registered config bundle
-var bundleApplyCmd = &cobra.Command{
-	Use:   "apply [source-ref]",
-	Short: "Apply a preset from a config bundle",
-	Long: `Apply a preset from a registered config bundle to a project.
+// bundleInstallCmd applies a preset from a registered config bundle
+var bundleInstallCmd = &cobra.Command{
+	Use:   "install [source-ref]",
+	Short: "Install a preset from a config bundle",
+	Long: `Install a preset from a registered config bundle to a project.
 
 The source-ref may be either a registered source ID or a unique source name.
 When omitted in interactive mode, the command prompts for source and preset selection.
 
 Examples:
-	  oc bundle apply qbic --preset default
-	  oc bundle apply qbic
-	  oc bundle apply abc12345 --version v1.2.3 --preset default
-	  oc bundle apply qbic --preset minimal --project-root ./myproject
-	  oc bundle apply qbic --auto --preset default --force
-	  oc bundle apply (interactive mode)`,
+	  oc bundle install qbic --preset default
+	  oc bundle install qbic
+	  oc bundle install abc12345 --version v1.2.3 --preset default
+	  oc bundle install qbic --preset minimal --project-root ./myproject
+	  oc bundle install qbic --auto --preset default --force
+	  oc bundle install (interactive mode)`,
 	Args: cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) > 0 {
-			return runBundleApply(args[0], false)
+			return runBundleInstall(args[0], false)
 		}
 		// No arguments provided - enter interactive mode
 		if !bundleInputIsTTY() || bundleAuto {
@@ -76,7 +76,7 @@ Examples:
 		if err != nil {
 			return err
 		}
-		return runBundleApply(sourceRef, true)
+		return runBundleInstall(sourceRef, true)
 	},
 }
 
@@ -117,20 +117,20 @@ func init() {
 	rootCmd.AddCommand(bundleCmd)
 
 	// Add subcommands
-	bundleCmd.AddCommand(bundleApplyCmd)
+	bundleCmd.AddCommand(bundleInstallCmd)
 	bundleCmd.AddCommand(bundleStatusCmd)
 	bundleCmd.AddCommand(bundleUpdateCmd)
 
-	// Flags for bundle apply
-	bundleApplyCmd.Flags().StringVar(&bundlePreset, "preset", "", "Preset name to apply")
-	bundleApplyCmd.Flags().StringVar(&bundleVersion, "version", "", "Bundle version/tag to apply for github-release sources")
-	bundleApplyCmd.Flags().StringVar(&bundleProjectRoot, "project-root", ".", "Project root directory")
-	bundleApplyCmd.Flags().StringVar(&bundleOutput, "output", "opencode.json", "Output file path")
-	bundleApplyCmd.Flags().BoolVar(&bundleAuto, "auto", false, "Run in non-interactive mode (requires source-ref and --preset)")
-	bundleApplyCmd.Flags().BoolVar(&bundleForce, "force", false, "Overwrite existing files")
-	bundleApplyCmd.Flags().BoolVar(&bundleDryRun, "dry-run", false, "Show what would be done without doing it")
-	bundleApplyCmd.ValidArgsFunction = completeSourceRefs
-	_ = bundleApplyCmd.RegisterFlagCompletionFunc("preset", completeBundlePresetNames)
+	// Flags for bundle install
+	bundleInstallCmd.Flags().StringVar(&bundlePreset, "preset", "", "Preset name to install")
+	bundleInstallCmd.Flags().StringVar(&bundleVersion, "version", "", "Bundle version/tag to install for github-release sources")
+	bundleInstallCmd.Flags().StringVar(&bundleProjectRoot, "project-root", ".", "Project root directory")
+	bundleInstallCmd.Flags().StringVar(&bundleOutput, "output", "opencode.json", "Output file path")
+	bundleInstallCmd.Flags().BoolVar(&bundleAuto, "auto", false, "Run in non-interactive mode (requires source-ref and --preset)")
+	bundleInstallCmd.Flags().BoolVar(&bundleForce, "force", false, "Overwrite existing files")
+	bundleInstallCmd.Flags().BoolVar(&bundleDryRun, "dry-run", false, "Show what would be done without doing it")
+	bundleInstallCmd.ValidArgsFunction = completeSourceRefs
+	_ = bundleInstallCmd.RegisterFlagCompletionFunc("preset", completeBundlePresetNames)
 	bundleUpdateCmd.ValidArgsFunction = completeSourceRefs
 
 	// Flags for bundle status
@@ -140,7 +140,7 @@ func init() {
 	bundleUpdateCmd.Flags().BoolVar(&bundleYes, "yes", false, "Skip confirmation prompt")
 }
 
-func runBundleApply(sourceRef string, interactivePreset bool) error {
+func runBundleInstall(sourceRef string, interactivePreset bool) error {
 	// Resolve project root
 	projectRoot, err := filepath.Abs(bundleProjectRoot)
 	if err != nil {
@@ -216,12 +216,12 @@ func runBundleApply(sourceRef string, interactivePreset bool) error {
 
 	// Dry run mode
 	if bundleDryRun {
-		fmt.Printf("dry-run: apply preset '%s' from bundle '%s'\n", selectedPreset, manifest.BundleName)
+		fmt.Printf("dry-run: install preset '%s' from bundle '%s'\n", selectedPreset, manifest.BundleName)
 		fmt.Printf("dry-run: write config to %s\n", outputPath)
 		return nil
 	}
 
-	// Reuse the shared write semantics so bundle apply matches init/preset overwrite behavior.
+	// Reuse the shared write semantics so bundle install matches init/preset overwrite behavior.
 	if err := configpreset.WriteConfig(outputPath, string(presetContent), bundleForce); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
@@ -242,7 +242,7 @@ func runBundleApply(sourceRef string, interactivePreset bool) error {
 		return fmt.Errorf("failed to save provenance: %w", err)
 	}
 	fmt.Printf("written: %s\n", bundle.ProvenancePath(projectRoot))
-	fmt.Println("done: bundle applied")
+	fmt.Println("done: bundle installed")
 
 	return nil
 }
@@ -541,7 +541,7 @@ func runBundleStatus() error {
 	// Load provenance
 	prov, err := bundle.LoadProvenance(projectRoot)
 	if err != nil {
-		return fmt.Errorf("no bundle applied to this project (run 'bundle apply' first)")
+		return fmt.Errorf("no bundle installed in this project (run 'bundle install' first)")
 	}
 
 	// Display provenance
@@ -583,7 +583,7 @@ func runBundleUpdate(sourceRef string) error {
 	var prov *bundle.Provenance
 	prov, err = bundle.LoadProvenance(projectRoot)
 	if err != nil {
-		return fmt.Errorf("no bundle applied to this project (run 'bundle apply' first)")
+		return fmt.Errorf("no bundle installed in this project (run 'bundle install' first)")
 	}
 
 	// Suppress unused variable warning

@@ -36,7 +36,7 @@ func setupTestBundle(t *testing.T) string {
 
 	// Create a bundle manifest for testing
 	manifestContent := `{
-  "manifest_version": 1,
+  "manifest_version": "1.0.0",
   "bundle_name": "test-bundle",
   "bundle_version": "v1.0.0",
   "presets": [
@@ -233,5 +233,83 @@ func TestSourceCommandsFlags(t *testing.T) {
 	// Test that flags are properly configured
 	if sourceAddCmd.Flags().Lookup("name") == nil {
 		t.Error("name flag should exist on source add command")
+	}
+	if sourceListCmd.Flags().Lookup("with-presets") == nil {
+		t.Error("with-presets flag should exist on source list command")
+	}
+}
+
+func TestRunSourceListWithPresets(t *testing.T) {
+	restore := saveRegistry(t)
+	defer restore()
+
+	// Create a temp bundle with presets
+	bundleDir := t.TempDir()
+	manifestContent := `{
+  "manifest_version": "1.0.0",
+  "bundle_name": "test-bundle",
+  "bundle_version": "v1.0.0",
+  "presets": [
+    {
+      "name": "preset1",
+      "description": "First preset",
+      "entrypoint": "preset1.json"
+    },
+    {
+      "name": "preset2",
+      "description": "Second preset",
+      "entrypoint": "preset2.json"
+    }
+  ]
+}`
+	if err := os.WriteFile(filepath.Join(bundleDir, "opencode-bundle.manifest.json"), []byte(manifestContent), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+
+	// Add source
+	registry, _ := source.LoadRegistry()
+	registry.Sources = []source.Source{{
+		ID:       "test-id",
+		Name:     "test-source",
+		Type:     source.SourceTypeLocalDirectory,
+		Location: bundleDir,
+	}}
+	if err := source.SaveRegistry(registry); err != nil {
+		t.Fatalf("failed to save registry: %v", err)
+	}
+
+	// Save original value and restore
+	orig := sourceWithPresets
+	defer func() { sourceWithPresets = orig }()
+
+	sourceWithPresets = true
+	listErr := runSourceList()
+	if listErr != nil {
+		t.Fatalf("runSourceList() error = %v", listErr)
+	}
+}
+
+func TestRunSourceListWithPresetsNoSources(t *testing.T) {
+	restore := saveRegistry(t)
+	defer restore()
+
+	// Clear all sources
+	registry, _ := source.LoadRegistry()
+	registry.Sources = []source.Source{}
+	if err := source.SaveRegistry(registry); err != nil {
+		t.Fatalf("failed to save registry: %v", err)
+	}
+
+	// Save original value and restore
+	orig := sourceWithPresets
+	defer func() { sourceWithPresets = orig }()
+
+	sourceWithPresets = true
+	listErr := runSourceList()
+	if listErr == nil {
+		t.Error("runSourceList() expected error when no sources registered")
+	}
+	if !strings.Contains(listErr.Error(), "no sources registered") {
+		t.Fatalf("runSourceList() error = %v, want 'no sources registered'", listErr)
 	}
 }

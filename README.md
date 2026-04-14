@@ -31,8 +31,8 @@ alias oc='$HOME/go/bin/opencode-config-cli'
 # Register a config bundle
 oc source add qbicsoftware/opencode-config-bundle --name qbic
 
-# Apply a preset
-oc bundle apply qbic --preset mixed --project-root .
+# Install a preset
+oc bundle install qbic --preset mixed --project-root .
 ```
 
 ## Installation

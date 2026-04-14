@@ -42,7 +42,20 @@ oc source add https://github.com/qbicsoftware/opencode-config-bundle/releases/ta
 List all registered sources.
 
 ```sh
+oc source list [--with-presets]
+```
+
+**Options:**
+- `--with-presets` — Show all presets from all registered sources in a flat table
+
+**Examples:**
+
+```sh
+# List all registered sources
 oc source list
+
+# List all sources with their available presets
+oc source list --with-presets
 ```
 
 ### oc source remove
@@ -55,31 +68,39 @@ oc source remove <name>
 
 ## Bundle Commands
 
-Apply and manage config bundles.
+Install and manage config bundles.
 
-### oc bundle apply
+### oc bundle install
 
-Apply a preset from a registered source.
+Install a preset from a registered source to your project.
 
 ```sh
-oc bundle apply <source-ref> [--preset <preset>] [--auto] --project-root <path>
+oc bundle install <source-ref> [--preset <preset>] [--auto] --project-root <path>
 ```
 
 **Options:**
-- `--preset` — Preset name to apply
-- `--auto` — Disable interactive preset selection in TTY mode
+- `--preset` — Preset name to install (required in non-interactive mode)
+- `--auto` — Run in non-interactive mode (disables prompts)
 - `--project-root` — Target directory (default: `.`)
+- `--force` — Overwrite existing files
+- `--dry-run` — Show what would be done without doing it
 
-**Example:**
+**Examples:**
 
 ```sh
-oc bundle apply qbic --preset mixed --project-root ./myproject
-oc bundle apply qbic --project-root ./myproject
+# Install a preset from a source
+oc bundle install qbic --preset mixed --project-root ./myproject
+
+# Install with interactive preset selection
+oc bundle install qbic --project-root ./myproject
+
+# Force overwrite existing config
+oc bundle install qbic --preset mixed --force
 ```
 
 ### oc bundle status
 
-Show provenance of applied bundles.
+Show provenance of installed bundles.
 
 ```sh
 oc bundle status --project-root <path>
@@ -99,17 +120,11 @@ Check for and apply updates from update-capable sources.
 oc bundle update <source-id>
 ```
 
-## Preset Commands
-
-### oc preset list
-
-List available presets.
+**Example:**
 
 ```sh
-oc preset list --sources
+oc bundle update qbic
 ```
-
-Shows presets from all registered sources with source and bundle context.
 
 ### oc completion
 

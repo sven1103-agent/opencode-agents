@@ -3,14 +3,17 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+	"github.com/sven1103-agent/opencode-config-cli/internal/bundle"
 	"github.com/sven1103-agent/opencode-config-cli/internal/source"
 )
 
 var (
-	sourceName string
+	sourceName        string
+	sourceWithPresets bool
 )
 
 // sourceCmd represents the source command
@@ -93,6 +96,9 @@ func init() {
 
 	// Flags for source add
 	sourceAddCmd.Flags().StringVar(&sourceName, "name", "", "Friendly name for the source")
+
+	// Flags for source list
+	sourceListCmd.Flags().BoolVar(&sourceWithPresets, "with-presets", false, "Show presets from all registered sources")
 }
 
 func runSourceAdd(location string) error {
@@ -112,6 +118,10 @@ func runSourceAdd(location string) error {
 }
 
 func runSourceList() error {
+	if sourceWithPresets {
+		return runSourceListWithPresets()
+	}
+
 	sources, err := source.ListSources()
 	if err != nil {
 		return fmt.Errorf("failed to list sources: %w", err)
@@ -133,6 +143,63 @@ func runSourceList() error {
 
 	if err := w.Flush(); err != nil {
 		return fmt.Errorf("failed to write output: %w", err)
+	}
+
+	return nil
+}
+
+func runSourceListWithPresets() error {
+	sources, err := source.ListSources()
+	if err != nil {
+		return fmt.Errorf("failed to list sources: %w", err)
+	}
+	if len(sources) == 0 {
+		return fmt.Errorf("no sources registered. Use 'oc source add <location>' first")
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintf(w, "SOURCE_REF\tSOURCE_ID\tBUNDLE_VERSION\tPRESET\tDESCRIPTION\n")
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", "──────────", "─────────", "──────────────", "──────", "───────────")
+
+	foundPreset := false
+	for _, src := range sources {
+		versionTag := ""
+		if string(src.Type) == "github-release" {
+			versionTag, err = inspectGitHubBundleVersion(src.Location, "")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to inspect source %s (%s): %v\n", src.Name, src.ID, err)
+				continue
+			}
+		}
+
+		bundleRoot, cleanup, err := bundle.ResolveToLocal(string(src.Type), src.Location, versionTag)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to inspect source %s (%s): %v\n", src.Name, src.ID, err)
+			continue
+		}
+
+		manifest, err := bundle.LoadManifest(filepath.Join(bundleRoot, "opencode-bundle.manifest.json"))
+		cleanup()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to inspect source %s (%s): %v\n", src.Name, src.ID, err)
+			continue
+		}
+
+		ref := src.ID
+		if src.Name != "" {
+			ref = src.Name
+		}
+		for _, preset := range manifest.Presets {
+			foundPreset = true
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", ref, src.ID, manifest.BundleVersion, preset.Name, preset.Description)
+		}
+	}
+
+	if err := w.Flush(); err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
+	if !foundPreset {
+		return fmt.Errorf("no inspectable source presets found")
 	}
 
 	return nil

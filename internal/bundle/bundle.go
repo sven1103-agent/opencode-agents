@@ -117,7 +117,7 @@ func LoadProvenance(projectRoot string) (*Provenance, error) {
 	data, err := os.ReadFile(provPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("no provenance file found (run 'bundle apply' first)")
+			return nil, fmt.Errorf("no provenance file found (run 'bundle install' first)")
 		}
 		return nil, fmt.Errorf("failed to read provenance: %w", err)
 	}
@@ -179,7 +179,7 @@ func ResolveToLocal(sourceType, sourceLocation, versionTag string) (string, func
 		}
 
 		// Extract to temp directory
-		tmpDir, err := os.MkdirTemp("", "opencode-bundle-apply")
+		tmpDir, err := os.MkdirTemp("", "opencode-bundle-install")
 		if err != nil {
 			return "", nil, fmt.Errorf("failed to create temp directory: %w", err)
 		}
