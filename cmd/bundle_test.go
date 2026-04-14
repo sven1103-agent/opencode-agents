@@ -31,8 +31,8 @@ func setupTestProject(t *testing.T) string {
 	return tempDir
 }
 
-// TestBundleInstallNoSource tests installing bundle without a source
-func TestBundleInstallNoSource(t *testing.T) {
+// TestBundleApplyNoSource tests applying bundle without a source
+func TestBundleApplyNoSource(t *testing.T) {
 	// Save original flag values
 	origPreset := bundlePreset
 	origProjectRoot := bundleProjectRoot
@@ -53,14 +53,14 @@ func TestBundleInstallNoSource(t *testing.T) {
 	bundleProjectRoot = "."
 	bundleDryRun = false
 
-	err := runBundleInstall("nonexistent-id", false)
+	err := runBundleApply("nonexistent-id", false)
 	if err == nil {
-		t.Error("runBundleInstall() expected error for nonexistent source")
+		t.Error("runBundleApply() expected error for nonexistent source")
 	}
 }
 
-// TestBundleInstallMissingPreset tests installing with missing preset flag
-func TestBundleInstallMissingPreset(t *testing.T) {
+// TestBundleApplyMissingPreset tests applying with missing preset flag
+func TestBundleApplyMissingPreset(t *testing.T) {
 	restore := saveRegistry(t)
 	defer restore()
 
@@ -95,12 +95,12 @@ func TestBundleInstallMissingPreset(t *testing.T) {
 	bundleInputIsTTY = func() bool { return false }
 	bundleProjectRoot = t.TempDir()
 
-	err := runBundleInstall("abc12345", false)
+	err := runBundleApply("abc12345", false)
 	if err == nil {
-		t.Error("runBundleInstall() expected error when preset is missing")
+		t.Error("runBundleApply() expected error when preset is missing")
 	}
 	if !strings.Contains(err.Error(), "--preset is required outside interactive mode") {
-		t.Fatalf("runBundleInstall() error = %v", err)
+		t.Fatalf("runBundleApply() error = %v", err)
 	}
 }
 
@@ -165,7 +165,7 @@ func TestBundleUpdateNonGitHub(t *testing.T) {
 	}
 }
 
-func TestBundleInstallPassesVersionForGitHubSources(t *testing.T) {
+func TestBundleApplyPassesVersionForGitHubSources(t *testing.T) {
 	restore := saveRegistry(t)
 	defer restore()
 
@@ -219,15 +219,15 @@ func TestBundleInstallPassesVersionForGitHubSources(t *testing.T) {
 		return bundleRoot, func() {}, nil
 	}
 
-	if err := runBundleInstall("github1", false); err != nil {
-		t.Fatalf("runBundleInstall() error = %v", err)
+	if err := runBundleApply("github1", false); err != nil {
+		t.Fatalf("runBundleApply() error = %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(projectRoot, "opencode.json")); err != nil {
 		t.Fatalf("expected opencode.json to be written: %v", err)
 	}
 }
 
-func TestBundleInstallInteractiveSelectsGitHubReleaseVersion(t *testing.T) {
+func TestBundleApplyInteractiveSelectsGitHubReleaseVersion(t *testing.T) {
 	restore := saveRegistry(t)
 	defer restore()
 
@@ -291,12 +291,12 @@ func TestBundleInstallInteractiveSelectsGitHubReleaseVersion(t *testing.T) {
 		return bundleRoot, func() {}, nil
 	}
 
-	if err := runBundleInstall("github1", false); err != nil {
-		t.Fatalf("runBundleInstall() error = %v", err)
+	if err := runBundleApply("github1", false); err != nil {
+		t.Fatalf("runBundleApply() error = %v", err)
 	}
 }
 
-func TestBundleInstallGitHubSourceRequiresVersionOutsideInteractiveMode(t *testing.T) {
+func TestBundleApplyGitHubSourceRequiresVersionOutsideInteractiveMode(t *testing.T) {
 	restore := saveRegistry(t)
 	defer restore()
 
@@ -329,16 +329,16 @@ func TestBundleInstallGitHubSourceRequiresVersionOutsideInteractiveMode(t *testi
 		return []bundle.GitHubReleaseVersion{{TagName: "v1.3.0", Prerelease: false}, {TagName: "v1.4.0-alpha.1", Prerelease: true}}, nil
 	}
 
-	err := runBundleInstall("github1", false)
+	err := runBundleApply("github1", false)
 	if err == nil {
-		t.Fatal("runBundleInstall() error = nil, want version-selection error")
+		t.Fatal("runBundleApply() error = nil, want version-selection error")
 	}
 	if !strings.Contains(err.Error(), "--version is required for github-release sources outside interactive mode") {
-		t.Fatalf("runBundleInstall() error = %v", err)
+		t.Fatalf("runBundleApply() error = %v", err)
 	}
 }
 
-func TestBundleInstallGitHubSourceReportsPrereleaseOnlyOutsideInteractiveMode(t *testing.T) {
+func TestBundleApplyGitHubSourceReportsPrereleaseOnlyOutsideInteractiveMode(t *testing.T) {
 	restore := saveRegistry(t)
 	defer restore()
 
@@ -371,16 +371,16 @@ func TestBundleInstallGitHubSourceReportsPrereleaseOnlyOutsideInteractiveMode(t 
 		return []bundle.GitHubReleaseVersion{{TagName: "v1.4.0-alpha.1", Prerelease: true}, {TagName: "v1.3.0-alpha.2", Prerelease: true}}, nil
 	}
 
-	err := runBundleInstall("github1", false)
+	err := runBundleApply("github1", false)
 	if err == nil {
-		t.Fatal("runBundleInstall() error = nil, want prerelease-only version-selection error")
+		t.Fatal("runBundleApply() error = nil, want prerelease-only version-selection error")
 	}
 	if !strings.Contains(err.Error(), "only prereleases are available") {
-		t.Fatalf("runBundleInstall() error = %v", err)
+		t.Fatalf("runBundleApply() error = %v", err)
 	}
 }
 
-func TestBundleInstallGitHubSourceSinglePrereleaseStillRequiresVersionOutsideInteractiveMode(t *testing.T) {
+func TestBundleApplyGitHubSourceSinglePrereleaseStillRequiresVersionOutsideInteractiveMode(t *testing.T) {
 	restore := saveRegistry(t)
 	defer restore()
 
@@ -413,12 +413,12 @@ func TestBundleInstallGitHubSourceSinglePrereleaseStillRequiresVersionOutsideInt
 		return []bundle.GitHubReleaseVersion{{TagName: "v1.4.0-alpha.1", Prerelease: true}}, nil
 	}
 
-	err := runBundleInstall("github1", false)
+	err := runBundleApply("github1", false)
 	if err == nil {
-		t.Fatal("runBundleInstall() error = nil, want prerelease-only version-selection error")
+		t.Fatal("runBundleApply() error = nil, want prerelease-only version-selection error")
 	}
 	if !strings.Contains(err.Error(), "only prereleases are available") {
-		t.Fatalf("runBundleInstall() error = %v", err)
+		t.Fatalf("runBundleApply() error = %v", err)
 	}
 }
 
@@ -478,22 +478,22 @@ func TestCompleteBundlePresetNamesGitHubSourceUsesNonInteractiveInspection(t *te
 	}
 }
 
-// TestBundleInstallFlags tests that bundle install flags are properly configured
-func TestBundleInstallFlags(t *testing.T) {
-	if bundleInstallCmd.Flags().Lookup("preset") == nil {
-		t.Error("preset flag should exist on bundle install command")
+// TestBundleApplyFlags tests that bundle apply flags are properly configured
+func TestBundleApplyFlags(t *testing.T) {
+	if bundleApplyCmd.Flags().Lookup("preset") == nil {
+		t.Error("preset flag should exist on bundle apply command")
 	}
-	if bundleInstallCmd.Flags().Lookup("auto") == nil {
-		t.Error("auto flag should exist on bundle install command")
+	if bundleApplyCmd.Flags().Lookup("auto") == nil {
+		t.Error("auto flag should exist on bundle apply command")
 	}
-	if bundleInstallCmd.Flags().Lookup("project-root") == nil {
-		t.Error("project-root flag should exist on bundle install command")
+	if bundleApplyCmd.Flags().Lookup("project-root") == nil {
+		t.Error("project-root flag should exist on bundle apply command")
 	}
-	if bundleInstallCmd.Flags().Lookup("force") == nil {
-		t.Error("force flag should exist on bundle install command")
+	if bundleApplyCmd.Flags().Lookup("force") == nil {
+		t.Error("force flag should exist on bundle apply command")
 	}
-	if bundleInstallCmd.Flags().Lookup("dry-run") == nil {
-		t.Error("dry-run flag should exist on bundle install command")
+	if bundleApplyCmd.Flags().Lookup("dry-run") == nil {
+		t.Error("dry-run flag should exist on bundle apply command")
 	}
 }
 
@@ -511,13 +511,13 @@ func TestBundleUpdateFlags(t *testing.T) {
 	}
 }
 
-func TestBundleInstallVersionFlagExists(t *testing.T) {
-	if bundleInstallCmd.Flags().Lookup("version") == nil {
-		t.Fatal("version flag should exist on bundle install command")
+func TestBundleApplyVersionFlagExists(t *testing.T) {
+	if bundleApplyCmd.Flags().Lookup("version") == nil {
+		t.Fatal("version flag should exist on bundle apply command")
 	}
 }
 
-func TestBundleInstallRejectsVersionForLocalSources(t *testing.T) {
+func TestBundleApplyRejectsVersionForLocalSources(t *testing.T) {
 	restore := saveRegistry(t)
 	defer restore()
 
@@ -557,16 +557,16 @@ func TestBundleInstallRejectsVersionForLocalSources(t *testing.T) {
 	bundleProjectRoot = projectRoot
 	bundleVersion = "v1.2.3"
 
-	err := runBundleInstall("local1", false)
+	err := runBundleApply("local1", false)
 	if err == nil {
-		t.Fatal("runBundleInstall() error = nil, want error")
+		t.Fatal("runBundleApply() error = nil, want error")
 	}
 	if !strings.Contains(err.Error(), "--version is only supported for github-release sources") {
-		t.Fatalf("runBundleInstall() error = %v", err)
+		t.Fatalf("runBundleApply() error = %v", err)
 	}
 }
 
-func TestBundleInstallResolvesSourceByName(t *testing.T) {
+func TestBundleApplyResolvesSourceByName(t *testing.T) {
 	restore := saveRegistry(t)
 	defer restore()
 
@@ -603,8 +603,8 @@ func TestBundleInstallResolvesSourceByName(t *testing.T) {
 	bundlePreset = "test"
 	bundleProjectRoot = projectRoot
 
-	if err := runBundleInstall("qbic", false); err != nil {
-		t.Fatalf("runBundleInstall() error = %v", err)
+	if err := runBundleApply("qbic", false); err != nil {
+		t.Fatalf("runBundleApply() error = %v", err)
 	}
 
 	prov, err := bundle.LoadProvenance(projectRoot)
@@ -616,7 +616,7 @@ func TestBundleInstallResolvesSourceByName(t *testing.T) {
 	}
 }
 
-func TestBundleInstallRejectsAmbiguousSourceName(t *testing.T) {
+func TestBundleApplyRejectsAmbiguousSourceName(t *testing.T) {
 	restore := saveRegistry(t)
 	defer restore()
 
@@ -630,16 +630,16 @@ func TestBundleInstallRejectsAmbiguousSourceName(t *testing.T) {
 	bundlePreset = "test"
 	defer func() { bundlePreset = origPreset }()
 
-	err := runBundleInstall("qbic", false)
+	err := runBundleApply("qbic", false)
 	if err == nil {
-		t.Fatal("runBundleInstall() error = nil, want ambiguous source error")
+		t.Fatal("runBundleApply() error = nil, want ambiguous source error")
 	}
 	if !strings.Contains(err.Error(), "ambiguous") || !strings.Contains(err.Error(), "id-1") || !strings.Contains(err.Error(), "id-2") {
-		t.Fatalf("runBundleInstall() error = %v", err)
+		t.Fatalf("runBundleApply() error = %v", err)
 	}
 }
 
-func TestBundleInstallInteractiveSelectsPreset(t *testing.T) {
+func TestBundleApplyInteractiveSelectsPreset(t *testing.T) {
 	restore := saveRegistry(t)
 	defer restore()
 
@@ -684,8 +684,8 @@ func TestBundleInstallInteractiveSelectsPreset(t *testing.T) {
 	bundlePromptIn = strings.NewReader("2\n")
 	bundlePromptOut = io.Discard
 
-	if err := runBundleInstall("qbic", false); err != nil {
-		t.Fatalf("runBundleInstall() error = %v", err)
+	if err := runBundleApply("qbic", false); err != nil {
+		t.Fatalf("runBundleApply() error = %v", err)
 	}
 
 	content, err := os.ReadFile(filepath.Join(projectRoot, "opencode.json"))
@@ -697,7 +697,7 @@ func TestBundleInstallInteractiveSelectsPreset(t *testing.T) {
 	}
 }
 
-func TestBundleInstallInteractiveAcceptsNumericLikePresetName(t *testing.T) {
+func TestBundleApplyInteractiveAcceptsNumericLikePresetName(t *testing.T) {
 	manifest := &bundle.Manifest{
 		BundleName: "numeric-fixture",
 		Presets: []bundle.Preset{
@@ -741,5 +741,560 @@ func TestCompleteSourceRefs(t *testing.T) {
 	}
 	if len(completions) != 1 || completions[0] != "qbic" {
 		t.Fatalf("completions = %v", completions)
+	}
+}
+
+// ============================================================================
+// Bundle Init Tests
+// ============================================================================
+
+func TestBundleInitFlags(t *testing.T) {
+	if bundleInitCmd.Flags().Lookup("name") == nil {
+		t.Error("name flag should exist on bundle init command")
+	}
+	if bundleInitCmd.Flags().Lookup("version") == nil {
+		t.Error("version flag should exist on bundle init command")
+	}
+	if bundleInitCmd.Flags().Lookup("output") == nil {
+		t.Error("output flag should exist on bundle init command")
+	}
+	if bundleInitCmd.Flags().Lookup("force") == nil {
+		t.Error("force flag should exist on bundle init command")
+	}
+}
+
+func TestBundleInitWithNameAndVersion(t *testing.T) {
+	// Save and restore original values
+	origName := bundleInitName
+	origVersion := bundleInitVersion
+	origOutput := bundleInitOutput
+	origForce := bundleInitForce
+	origTTY := bundleInputIsTTY
+	defer func() {
+		bundleInitName = origName
+		bundleInitVersion = origVersion
+		bundleInitOutput = origOutput
+		bundleInitForce = origForce
+		bundleInputIsTTY = origTTY
+	}()
+
+	// Create temp output directory
+	tempDir := t.TempDir()
+	outputDir := filepath.Join(tempDir, "my-bundle")
+
+	bundleInitName = "my-bundle"
+	bundleInitVersion = "v1.0.0"
+	bundleInitOutput = outputDir
+	bundleInitForce = false
+	bundleInputIsTTY = func() bool { return false }
+
+	err := runBundleInit()
+	if err != nil {
+		t.Fatalf("runBundleInit() error = %v", err)
+	}
+
+	// Verify manifest was created
+	manifestPath := filepath.Join(outputDir, "opencode-bundle.manifest.json")
+	if _, err := os.Stat(manifestPath); err != nil {
+		t.Fatalf("expected manifest to be created: %v", err)
+	}
+
+	// Verify manifest content
+	manifest, err := bundle.LoadManifest(manifestPath)
+	if err != nil {
+		t.Fatalf("failed to load manifest: %v", err)
+	}
+	if manifest.BundleName != "my-bundle" {
+		t.Fatalf("manifest.BundleName = %q, want %q", manifest.BundleName, "my-bundle")
+	}
+	if manifest.BundleVersion != "v1.0.0" {
+		t.Fatalf("manifest.BundleVersion = %q, want %q", manifest.BundleVersion, "v1.0.0")
+	}
+	if manifest.ManifestVersion != "1.0.0" {
+		t.Fatalf("manifest.ManifestVersion = %q, want %q", manifest.ManifestVersion, "1.0.0")
+	}
+	if len(manifest.Presets) != 1 {
+		t.Fatalf("len(manifest.Presets) = %d, want 1", len(manifest.Presets))
+	}
+	if manifest.Presets[0].Name != "default" {
+		t.Fatalf("manifest.Presets[0].Name = %q, want %q", manifest.Presets[0].Name, "default")
+	}
+	if manifest.Presets[0].Entrypoint != "presets/default.json" {
+		t.Fatalf("manifest.Presets[0].Entrypoint = %q, want %q", manifest.Presets[0].Entrypoint, "presets/default.json")
+	}
+
+	// Verify preset was created
+	presetPath := filepath.Join(outputDir, "presets", "default.json")
+	if _, err := os.Stat(presetPath); err != nil {
+		t.Fatalf("expected preset to be created: %v", err)
+	}
+
+	// Verify README was created
+	readmePath := filepath.Join(outputDir, "README.md")
+	if _, err := os.Stat(readmePath); err != nil {
+		t.Fatalf("expected README to be created: %v", err)
+	}
+
+	readmeData, err := os.ReadFile(readmePath)
+	if err != nil {
+		t.Fatalf("failed to read README: %v", err)
+	}
+	if !strings.Contains(string(readmeData), "my-bundle") {
+		t.Fatalf("README should contain bundle name")
+	}
+}
+
+func TestBundleInitWithNameOnlyDefaultsVersion(t *testing.T) {
+	// Save and restore original values
+	origName := bundleInitName
+	origVersion := bundleInitVersion
+	origOutput := bundleInitOutput
+	origTTY := bundleInputIsTTY
+	defer func() {
+		bundleInitName = origName
+		bundleInitVersion = origVersion
+		bundleInitOutput = origOutput
+		bundleInputIsTTY = origTTY
+	}()
+
+	// Create temp output directory
+	tempDir := t.TempDir()
+	outputDir := filepath.Join(tempDir, "test-bundle")
+
+	bundleInitName = "test-bundle"
+	bundleInitVersion = ""
+	bundleInitOutput = outputDir
+	bundleInputIsTTY = func() bool { return false }
+
+	err := runBundleInit()
+	if err != nil {
+		t.Fatalf("runBundleInit() error = %v", err)
+	}
+
+	// Verify version defaults to 0.0.1
+	manifestPath := filepath.Join(outputDir, "opencode-bundle.manifest.json")
+	manifest, err := bundle.LoadManifest(manifestPath)
+	if err != nil {
+		t.Fatalf("failed to load manifest: %v", err)
+	}
+	if manifest.BundleVersion != defaultBundleVersion {
+		t.Fatalf("manifest.BundleVersion = %q, want default %q", manifest.BundleVersion, defaultBundleVersion)
+	}
+}
+
+func TestBundleInitFailsWithoutNameInNonInteractiveMode(t *testing.T) {
+	// Save and restore original values
+	origName := bundleInitName
+	origOutput := bundleInitOutput
+	origTTY := bundleInputIsTTY
+	defer func() {
+		bundleInitName = origName
+		bundleInitOutput = origOutput
+		bundleInputIsTTY = origTTY
+	}()
+
+	tempDir := t.TempDir()
+	bundleInitName = ""
+	bundleInitOutput = filepath.Join(tempDir, "output")
+	bundleInputIsTTY = func() bool { return false }
+
+	err := runBundleInit()
+	if err == nil {
+		t.Fatal("runBundleInit() expected error when name is empty in non-interactive mode")
+	}
+	if !strings.Contains(err.Error(), "--name is required") {
+		t.Fatalf("runBundleInit() error = %v, want error containing '--name is required'", err)
+	}
+}
+
+func TestBundleInitInteractivePromptsForName(t *testing.T) {
+	// Save and restore original values
+	origName := bundleInitName
+	origVersion := bundleInitVersion
+	origOutput := bundleInitOutput
+	origTTY := bundleInputIsTTY
+	origPromptIn := bundlePromptIn
+	origPromptOut := bundlePromptOut
+	defer func() {
+		bundleInitName = origName
+		bundleInitVersion = origVersion
+		bundleInitOutput = origOutput
+		bundleInputIsTTY = origTTY
+		bundlePromptIn = origPromptIn
+		bundlePromptOut = origPromptOut
+	}()
+
+	tempDir := t.TempDir()
+	outputDir := filepath.Join(tempDir, "interactive-bundle")
+	bundleInitName = ""
+	bundleInitVersion = "v2.0.0"
+	bundleInitOutput = outputDir
+	bundleInputIsTTY = func() bool { return true }
+	bundlePromptIn = strings.NewReader("interactive-name\n")
+	bundlePromptOut = io.Discard
+
+	err := runBundleInit()
+	if err != nil {
+		t.Fatalf("runBundleInit() error = %v", err)
+	}
+
+	// Verify manifest was created with the interactive name
+	manifestPath := filepath.Join(outputDir, "opencode-bundle.manifest.json")
+	manifest, err := bundle.LoadManifest(manifestPath)
+	if err != nil {
+		t.Fatalf("failed to load manifest: %v", err)
+	}
+	if manifest.BundleName != "interactive-name" {
+		t.Fatalf("manifest.BundleName = %q, want %q", manifest.BundleName, "interactive-name")
+	}
+	if manifest.BundleVersion != "v2.0.0" {
+		t.Fatalf("manifest.BundleVersion = %q, want %q", manifest.BundleVersion, "v2.0.0")
+	}
+}
+
+func TestBundleInitInteractivePromptsForVersion(t *testing.T) {
+	// Save and restore original values
+	origName := bundleInitName
+	origVersion := bundleInitVersion
+	origOutput := bundleInitOutput
+	origTTY := bundleInputIsTTY
+	origPromptIn := bundlePromptIn
+	origPromptOut := bundlePromptOut
+	defer func() {
+		bundleInitName = origName
+		bundleInitVersion = origVersion
+		bundleInitOutput = origOutput
+		bundleInputIsTTY = origTTY
+		bundlePromptIn = origPromptIn
+		bundlePromptOut = origPromptOut
+	}()
+
+	tempDir := t.TempDir()
+	outputDir := filepath.Join(tempDir, "version-prompt-bundle")
+	bundleInitName = "test-bundle"
+	bundleInitVersion = ""
+	bundleInitOutput = outputDir
+	bundleInputIsTTY = func() bool { return true }
+	bundlePromptIn = strings.NewReader("\n") // Empty version, should use default
+	bundlePromptOut = io.Discard
+
+	err := runBundleInit()
+	if err != nil {
+		t.Fatalf("runBundleInit() error = %v", err)
+	}
+
+	// Verify manifest was created with default version
+	manifestPath := filepath.Join(outputDir, "opencode-bundle.manifest.json")
+	manifest, err := bundle.LoadManifest(manifestPath)
+	if err != nil {
+		t.Fatalf("failed to load manifest: %v", err)
+	}
+	if manifest.BundleVersion != defaultBundleVersion {
+		t.Fatalf("manifest.BundleVersion = %q, want default %q", manifest.BundleVersion, defaultBundleVersion)
+	}
+}
+
+func TestBundleInitFailsWhenDirectoryExistsWithoutForce(t *testing.T) {
+	// Save and restore original values
+	origName := bundleInitName
+	origOutput := bundleInitOutput
+	origTTY := bundleInputIsTTY
+	defer func() {
+		bundleInitName = origName
+		bundleInitOutput = origOutput
+		bundleInputIsTTY = origTTY
+	}()
+
+	// Create temp directory with existing content
+	tempDir := t.TempDir()
+	outputDir := filepath.Join(tempDir, "existing-dir")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		t.Fatalf("failed to create directory: %v", err)
+	}
+	// Write something in the directory
+	if err := os.WriteFile(filepath.Join(outputDir, "existing.txt"), []byte("existing"), 0644); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+
+	bundleInitName = "new-bundle"
+	bundleInitOutput = outputDir
+	bundleInitForce = false
+	bundleInputIsTTY = func() bool { return false }
+
+	err := runBundleInit()
+	if err == nil {
+		t.Fatal("runBundleInit() expected error when directory exists without --force")
+	}
+	if !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("runBundleInit() error = %v, want error containing 'already exists'", err)
+	}
+}
+
+func TestBundleInitSucceedsWithForceOnExistingDirectory(t *testing.T) {
+	// Save and restore original values
+	origName := bundleInitName
+	origOutput := bundleInitOutput
+	origTTY := bundleInputIsTTY
+	defer func() {
+		bundleInitName = origName
+		bundleInitOutput = origOutput
+		bundleInputIsTTY = origTTY
+	}()
+
+	// Create temp directory with existing content
+	tempDir := t.TempDir()
+	outputDir := filepath.Join(tempDir, "existing-dir")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		t.Fatalf("failed to create directory: %v", err)
+	}
+	// Write something in the directory
+	if err := os.WriteFile(filepath.Join(outputDir, "existing.txt"), []byte("existing"), 0644); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+
+	bundleInitName = "new-bundle"
+	bundleInitOutput = outputDir
+	bundleInitForce = true
+	bundleInputIsTTY = func() bool { return false }
+
+	err := runBundleInit()
+	if err != nil {
+		t.Fatalf("runBundleInit() error = %v", err)
+	}
+
+	// Verify manifest was created
+	manifestPath := filepath.Join(outputDir, "opencode-bundle.manifest.json")
+	if _, err := os.Stat(manifestPath); err != nil {
+		t.Fatalf("expected manifest to be created: %v", err)
+	}
+}
+
+func TestBundleInitCreatesPresetsSubdirectory(t *testing.T) {
+	// Save and restore original values
+	origName := bundleInitName
+	origOutput := bundleInitOutput
+	origTTY := bundleInputIsTTY
+	defer func() {
+		bundleInitName = origName
+		bundleInitOutput = origOutput
+		bundleInputIsTTY = origTTY
+	}()
+
+	tempDir := t.TempDir()
+	outputDir := filepath.Join(tempDir, "preset-test-bundle")
+
+	bundleInitName = "preset-test"
+	bundleInitOutput = outputDir
+	bundleInputIsTTY = func() bool { return false }
+
+	err := runBundleInit()
+	if err != nil {
+		t.Fatalf("runBundleInit() error = %v", err)
+	}
+
+	// Verify presets directory was created
+	presetsDir := filepath.Join(outputDir, "presets")
+	if info, err := os.Stat(presetsDir); err != nil {
+		t.Fatalf("presets directory not created: %v", err)
+	} else if !info.IsDir() {
+		t.Fatal("presets is not a directory")
+	}
+}
+
+func TestValidateBundleName(t *testing.T) {
+	tests := []struct {
+		name    string
+		wantErr bool
+	}{
+		{"valid-bundle", false},
+		{"valid_bundle", false},
+		{"validBundle123", false},
+		{"a", false},
+		{"123", false},
+		{"-invalid", true},     // can't start with hyphen
+		{"_invalid", true},     // can't start with underscore
+		{"", true},             // empty
+		{"invalid name", true}, // contains space
+		{"invalid.name", true}, // contains dot
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateBundleName(tt.name)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateBundleName(%q) error = %v, wantErr %v", tt.name, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestBundleInitRejectsInvalidBundleName(t *testing.T) {
+	// Save and restore original values
+	origName := bundleInitName
+	origOutput := bundleInitOutput
+	origTTY := bundleInputIsTTY
+	defer func() {
+		bundleInitName = origName
+		bundleInitOutput = origOutput
+		bundleInputIsTTY = origTTY
+	}()
+
+	tempDir := t.TempDir()
+	bundleInitName = "-invalid" // starts with hyphen (invalid)
+	bundleInitOutput = filepath.Join(tempDir, "output")
+	bundleInputIsTTY = func() bool { return false }
+
+	err := runBundleInit()
+	if err == nil {
+		t.Fatal("runBundleInit() expected error for invalid bundle name")
+	}
+	if !strings.Contains(err.Error(), "must start with a letter or number") {
+		t.Fatalf("runBundleInit() error = %v, want error containing 'must start with a letter or number'", err)
+	}
+}
+
+func TestBundleInitInteractiveCancelsOnEOF(t *testing.T) {
+	// Save and restore original values
+	origName := bundleInitName
+	origOutput := bundleInitOutput
+	origTTY := bundleInputIsTTY
+	origPromptIn := bundlePromptIn
+	defer func() {
+		bundleInitName = origName
+		bundleInitOutput = origOutput
+		bundleInputIsTTY = origTTY
+		bundlePromptIn = origPromptIn
+	}()
+
+	tempDir := t.TempDir()
+	bundleInitName = ""
+	bundleInitOutput = filepath.Join(tempDir, "output")
+	bundleInputIsTTY = func() bool { return true }
+	bundlePromptIn = strings.NewReader("") // EOF
+
+	err := runBundleInit()
+	if err == nil {
+		t.Fatal("runBundleInit() expected error on EOF")
+	}
+	if !strings.Contains(err.Error(), "cancelled") {
+		t.Fatalf("runBundleInit() error = %v, want error containing 'cancelled'", err)
+	}
+}
+
+func TestBundleInitCreatesOutputDirectory(t *testing.T) {
+	// Save and restore original values
+	origName := bundleInitName
+	origOutput := bundleInitOutput
+	origTTY := bundleInputIsTTY
+	defer func() {
+		bundleInitName = origName
+		bundleInitOutput = origOutput
+		bundleInputIsTTY = origTTY
+	}()
+
+	tempDir := t.TempDir()
+	outputDir := filepath.Join(tempDir, "new", "nested", "path")
+
+	bundleInitName = "nested-bundle"
+	bundleInitOutput = outputDir
+	bundleInputIsTTY = func() bool { return false }
+
+	err := runBundleInit()
+	if err != nil {
+		t.Fatalf("runBundleInit() error = %v", err)
+	}
+
+	// Verify directory was created
+	if info, err := os.Stat(outputDir); err != nil {
+		t.Fatalf("output directory not created: %v", err)
+	} else if !info.IsDir() {
+		t.Fatal("output is not a directory")
+	}
+}
+
+func TestBundleInitManifestIsLoadable(t *testing.T) {
+	// Save and restore original values
+	origName := bundleInitName
+	origVersion := bundleInitVersion
+	origOutput := bundleInitOutput
+	origTTY := bundleInputIsTTY
+	defer func() {
+		bundleInitName = origName
+		bundleInitVersion = origVersion
+		bundleInitOutput = origOutput
+		bundleInputIsTTY = origTTY
+	}()
+
+	tempDir := t.TempDir()
+	outputDir := filepath.Join(tempDir, "loadable-bundle")
+
+	bundleInitName = "loadable-bundle"
+	bundleInitVersion = "v3.0.0"
+	bundleInitOutput = outputDir
+	bundleInputIsTTY = func() bool { return false }
+
+	err := runBundleInit()
+	if err != nil {
+		t.Fatalf("runBundleInit() error = %v", err)
+	}
+
+	// Verify manifest can be loaded by LoadManifest
+	manifestPath := filepath.Join(outputDir, "opencode-bundle.manifest.json")
+	manifest, err := bundle.LoadManifest(manifestPath)
+	if err != nil {
+		t.Fatalf("LoadManifest() failed: %v", err)
+	}
+
+	// Verify manifest has all required fields
+	if manifest.ManifestVersion != "1.0.0" {
+		t.Fatalf("manifest.ManifestVersion = %q", manifest.ManifestVersion)
+	}
+	if manifest.BundleName != "loadable-bundle" {
+		t.Fatalf("manifest.BundleName = %q", manifest.BundleName)
+	}
+	if manifest.BundleVersion != "v3.0.0" {
+		t.Fatalf("manifest.BundleVersion = %q", manifest.BundleVersion)
+	}
+	if len(manifest.Presets) != 1 {
+		t.Fatalf("len(manifest.Presets) = %d", len(manifest.Presets))
+	}
+}
+
+func TestBundleInitPresetFilePathMatchesEntrypoint(t *testing.T) {
+	// Save and restore original values
+	origName := bundleInitName
+	origOutput := bundleInitOutput
+	origTTY := bundleInputIsTTY
+	defer func() {
+		bundleInitName = origName
+		bundleInitOutput = origOutput
+		bundleInputIsTTY = origTTY
+	}()
+
+	tempDir := t.TempDir()
+	outputDir := filepath.Join(tempDir, "entrypoint-test")
+
+	bundleInitName = "entrypoint-test"
+	bundleInitOutput = outputDir
+	bundleInputIsTTY = func() bool { return false }
+
+	err := runBundleInit()
+	if err != nil {
+		t.Fatalf("runBundleInit() error = %v", err)
+	}
+
+	// Load manifest and verify preset entrypoint
+	manifestPath := filepath.Join(outputDir, "opencode-bundle.manifest.json")
+	manifest, err := bundle.LoadManifest(manifestPath)
+	if err != nil {
+		t.Fatalf("LoadManifest() failed: %v", err)
+	}
+
+	preset := manifest.Presets[0]
+	expectedPresetPath := filepath.Join(outputDir, preset.Entrypoint)
+
+	// Verify the preset file exists at the entrypoint path
+	if _, err := os.Stat(expectedPresetPath); err != nil {
+		t.Fatalf("preset file does not exist at entrypoint path %s: %v", expectedPresetPath, err)
 	}
 }
