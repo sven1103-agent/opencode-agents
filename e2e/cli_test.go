@@ -62,8 +62,8 @@ func TestLocalDirectoryFlow(t *testing.T) {
 	requireContains(t, listResult.stdout, "fixture-dir")
 	requireContains(t, listResult.stdout, "local-directory")
 
-	installResult := runOC(t, env, "bundle", "install", sourceID, "--preset", "fixture", "--project-root", projectRoot)
-	requireSuccess(t, installResult)
+	applyResult := runOC(t, env, "bundle", "apply", sourceID, "--preset", "fixture", "--project-root", projectRoot)
+	requireSuccess(t, applyResult)
 
 	configPath := filepath.Join(projectRoot, "opencode.json")
 	configData, err := os.ReadFile(configPath)
@@ -91,22 +91,22 @@ func TestLocalDirectoryFlow(t *testing.T) {
 	requireContains(t, statusResult.stdout, "fixture-dir")
 	requireContains(t, statusResult.stdout, "fixture")
 
-	overwriteResult := runOC(t, env, "bundle", "install", sourceID, "--preset", "fixture", "--project-root", projectRoot)
+	overwriteResult := runOC(t, env, "bundle", "apply", sourceID, "--preset", "fixture", "--project-root", projectRoot)
 	requireFailure(t, overwriteResult)
 	requireContains(t, overwriteResult.stderr, "output file exists")
 
-	forceResult := runOC(t, env, "bundle", "install", sourceID, "--preset", "fixture", "--project-root", projectRoot, "--force")
+	forceResult := runOC(t, env, "bundle", "apply", sourceID, "--preset", "fixture", "--project-root", projectRoot, "--force")
 	requireSuccess(t, forceResult)
 	updatedProv := readProvenance(t, provenancePath)
 	if updatedProv.SourceID != sourceID {
-		t.Fatalf("expected forced install to preserve source id %q, got %q", sourceID, updatedProv.SourceID)
+		t.Fatalf("expected forced apply to preserve source id %q, got %q", sourceID, updatedProv.SourceID)
 	}
 	if updatedProv.SourceName != "fixture-dir" {
-		t.Fatalf("expected forced install source name fixture-dir, got %q", updatedProv.SourceName)
+		t.Fatalf("expected forced apply source name fixture-dir, got %q", updatedProv.SourceName)
 	}
 }
 
-func TestLocalDirectoryInstallBySourceName(t *testing.T) {
+func TestLocalDirectoryApplyBySourceName(t *testing.T) {
 	env := testEnv(t)
 	bundleDir := copyFixtureBundle(t)
 	projectRoot := t.TempDir()
@@ -114,8 +114,8 @@ func TestLocalDirectoryInstallBySourceName(t *testing.T) {
 	addResult := runOC(t, env, "source", "add", bundleDir, "--name", "fixture-dir")
 	requireSuccess(t, addResult)
 
-	installResult := runOC(t, env, "bundle", "install", "fixture-dir", "--preset", "fixture", "--project-root", projectRoot)
-	requireSuccess(t, installResult)
+	applyResult := runOC(t, env, "bundle", "apply", "fixture-dir", "--preset", "fixture", "--project-root", projectRoot)
+	requireSuccess(t, applyResult)
 
 	prov := readProvenance(t, filepath.Join(projectRoot, ".opencode", "bundle-provenance.json"))
 	if prov.SourceName != "fixture-dir" {
@@ -137,8 +137,8 @@ func TestLocalArchiveFlow(t *testing.T) {
 	requireSuccess(t, addResult)
 	sourceID := extractSourceID(t, addResult.stdout)
 
-	installResult := runOC(t, env, "bundle", "install", sourceID, "--preset", "fixture", "--project-root", projectRoot)
-	requireSuccess(t, installResult)
+	applyResult := runOC(t, env, "bundle", "apply", sourceID, "--preset", "fixture", "--project-root", projectRoot)
+	requireSuccess(t, applyResult)
 
 	provenancePath := filepath.Join(projectRoot, ".opencode", "bundle-provenance.json")
 	prov := readProvenance(t, provenancePath)
@@ -168,8 +168,8 @@ func TestGitHubReleaseFlow(t *testing.T) {
 	requireSuccess(t, addResult)
 	sourceID := extractSourceID(t, addResult.stdout)
 
-	installResult := runOC(t, env, "bundle", "install", sourceID, "--version", "v1.2.3", "--preset", "fixture", "--project-root", projectRoot)
-	requireSuccess(t, installResult)
+	applyResult := runOC(t, env, "bundle", "apply", sourceID, "--version", "v1.2.3", "--preset", "fixture", "--project-root", projectRoot)
+	requireSuccess(t, applyResult)
 
 	configPath := filepath.Join(projectRoot, "opencode.json")
 	configData, err := os.ReadFile(configPath)
@@ -208,10 +208,10 @@ func TestGitHubReleaseInteractiveVersionSelectionFlow(t *testing.T) {
 	requireSuccess(t, addResult)
 	sourceID := extractSourceID(t, addResult.stdout)
 
-	installResult := runOCInPTY(t, env, "1\n", "bundle", "install", sourceID, "--preset", "fixture", "--project-root", projectRoot)
-	requireSuccess(t, installResult)
-	requireContains(t, installResult.stdout, "Available versions for owner/repo:")
-	requireContains(t, installResult.stdout, "v1.3.0-alpha.1 (prerelease)")
+	applyResult := runOCInPTY(t, env, "1\n", "bundle", "apply", sourceID, "--preset", "fixture", "--project-root", projectRoot)
+	requireSuccess(t, applyResult)
+	requireContains(t, applyResult.stdout, "Available versions for owner/repo:")
+	requireContains(t, applyResult.stdout, "v1.3.0-alpha.1 (prerelease)")
 
 	configData, err := os.ReadFile(filepath.Join(projectRoot, "opencode.json"))
 	if err != nil {
@@ -228,7 +228,7 @@ func TestGitHubReleaseInteractiveVersionSelectionFlow(t *testing.T) {
 	}
 }
 
-func TestGitHubReleaseInstallWithoutVersionNonInteractiveFails(t *testing.T) {
+func TestGitHubReleaseApplyWithoutVersionNonInteractiveFails(t *testing.T) {
 	env := testEnv(t)
 	projectRoot := t.TempDir()
 	server := newGitHubReleaseE2EServer(t, githubReleaseE2EFixture{
@@ -246,22 +246,22 @@ func TestGitHubReleaseInstallWithoutVersionNonInteractiveFails(t *testing.T) {
 	requireSuccess(t, addResult)
 	sourceID := extractSourceID(t, addResult.stdout)
 
-	installResult := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "install", sourceID, "--preset", "fixture", "--project-root", projectRoot)
-	requireFailure(t, installResult)
-	requireContains(t, installResult.stderr, "--version is required for github-release sources outside interactive mode")
-	if strings.Contains(installResult.stderr, "Select a version") || strings.Contains(installResult.stdout, "Select a version") {
-		t.Fatalf("unexpected interactive prompt in non-interactive flow: stdout=%q stderr=%q", installResult.stdout, installResult.stderr)
+	applyResult := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "apply", sourceID, "--preset", "fixture", "--project-root", projectRoot)
+	requireFailure(t, applyResult)
+	requireContains(t, applyResult.stderr, "--version is required for github-release sources outside interactive mode")
+	if strings.Contains(applyResult.stderr, "Select a version") || strings.Contains(applyResult.stdout, "Select a version") {
+		t.Fatalf("unexpected interactive prompt in non-interactive flow: stdout=%q stderr=%q", applyResult.stdout, applyResult.stderr)
 	}
 }
 
-func TestBundleInstallFailsForUnknownSource(t *testing.T) {
+func TestBundleApplyFailsForUnknownSource(t *testing.T) {
 	projectRoot := t.TempDir()
-	result := runOC(t, testEnv(t), "bundle", "install", "missing-id", "--preset", "fixture", "--project-root", projectRoot)
+	result := runOC(t, testEnv(t), "bundle", "apply", "missing-id", "--preset", "fixture", "--project-root", projectRoot)
 	requireFailure(t, result)
 	requireContains(t, result.stderr, "source not found")
 }
 
-func TestBundleInstallRequiresPresetOutsideTTY(t *testing.T) {
+func TestBundleApplyRequiresPresetOutsideTTY(t *testing.T) {
 	env := testEnv(t)
 	bundleDir := copyFixtureBundle(t)
 	projectRoot := t.TempDir()
@@ -269,16 +269,16 @@ func TestBundleInstallRequiresPresetOutsideTTY(t *testing.T) {
 	addResult := runOC(t, env, "source", "add", bundleDir, "--name", "fixture-dir")
 	requireSuccess(t, addResult)
 
-	installResult := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "install", "fixture-dir", "--project-root", projectRoot)
-	requireFailure(t, installResult)
-	requireContains(t, installResult.stderr, "--preset is required outside interactive mode")
+	applyResult := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "apply", "fixture-dir", "--project-root", projectRoot)
+	requireFailure(t, applyResult)
+	requireContains(t, applyResult.stderr, "--preset is required outside interactive mode")
 }
 
-func TestBundleInstallNoArgsFailsInNonTTY(t *testing.T) {
+func TestBundleApplyNoArgsFailsInNonTTY(t *testing.T) {
 	// When run without arguments in non-TTY (e2e tests), should fail with helpful message
 	// Use empty stdin to ensure no TTY is detected
 	projectRoot := t.TempDir()
-	result := runOCWithStdin(t, testEnv(t), strings.NewReader(""), "bundle", "install", "--project-root", projectRoot)
+	result := runOCWithStdin(t, testEnv(t), strings.NewReader(""), "bundle", "apply", "--project-root", projectRoot)
 	requireFailure(t, result)
 	// When there are no sources, it should fail with "no sources registered"
 	// OR when there are sources but no TTY, fail with "source-ref is required"
@@ -286,7 +286,7 @@ func TestBundleInstallNoArgsFailsInNonTTY(t *testing.T) {
 	requireContains(t, result.stderr, "non-interactive mode")
 }
 
-func TestBundleInstallAutoFlagRequiresSourceRef(t *testing.T) {
+func TestBundleApplyAutoFlagRequiresSourceRef(t *testing.T) {
 	// --auto flag should require source-ref argument regardless of TTY
 	env := testEnv(t)
 	bundleDir := copyFixtureBundle(t)
@@ -296,13 +296,13 @@ func TestBundleInstallAutoFlagRequiresSourceRef(t *testing.T) {
 
 	projectRoot := t.TempDir()
 	// Using --auto without source-ref should fail
-	result := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "install", "--auto", "--project-root", projectRoot)
+	result := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "apply", "--auto", "--project-root", projectRoot)
 	requireFailure(t, result)
 	requireContains(t, result.stderr, "source-ref is required")
 	requireContains(t, result.stderr, "--auto")
 }
 
-func TestBundleInstallAutoFlagWithPresetRequiresSource(t *testing.T) {
+func TestBundleApplyAutoFlagWithPresetRequiresSource(t *testing.T) {
 	// --auto with --preset but no source-ref should fail
 	env := testEnv(t)
 	bundleDir := copyFixtureBundle(t)
@@ -311,7 +311,7 @@ func TestBundleInstallAutoFlagWithPresetRequiresSource(t *testing.T) {
 	requireSuccess(t, addResult)
 
 	projectRoot := t.TempDir()
-	result := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "install", "--auto", "--preset", "fixture", "--project-root", projectRoot)
+	result := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "apply", "--auto", "--preset", "fixture", "--project-root", projectRoot)
 	requireFailure(t, result)
 	requireContains(t, result.stderr, "source-ref is required")
 }
@@ -323,7 +323,7 @@ func TestSourceAddFailsWithoutManifest(t *testing.T) {
 	requireContains(t, result.stderr, "bundle manifest not found")
 }
 
-func TestInvalidTarballFailsOnInstall(t *testing.T) {
+func TestInvalidTarballFailsOnApply(t *testing.T) {
 	env := testEnv(t)
 	archivePath := filepath.Join(t.TempDir(), "invalid.tar.gz")
 	if err := os.WriteFile(archivePath, []byte("not a tarball"), 0o644); err != nil {
@@ -335,14 +335,14 @@ func TestInvalidTarballFailsOnInstall(t *testing.T) {
 	sourceID := extractSourceID(t, addResult.stdout)
 
 	projectRoot := t.TempDir()
-	installResult := runOC(t, env, "bundle", "install", sourceID, "--preset", "fixture", "--project-root", projectRoot)
-	requireFailure(t, installResult)
-	requireContains(t, installResult.stderr, "failed to resolve source")
+	applyResult := runOC(t, env, "bundle", "apply", sourceID, "--preset", "fixture", "--project-root", projectRoot)
+	requireFailure(t, applyResult)
+	requireContains(t, applyResult.stderr, "failed to resolve source")
 	if runtime.GOOS == "darwin" {
-		requireContains(t, installResult.stderr, "failed to extract tarball")
+		requireContains(t, applyResult.stderr, "failed to extract tarball")
 		return
 	}
-	requireContains(t, installResult.stderr, "failed to extract tarball")
+	requireContains(t, applyResult.stderr, "failed to extract tarball")
 }
 
 func testEnv(t *testing.T) []string {
@@ -734,4 +734,180 @@ func TestPresetListSourcesGitHubPrereleaseOnlyWarns(t *testing.T) {
 	listResult := runOCWithStdin(t, env, strings.NewReader(""), "source", "list", "--with-presets")
 	requireFailure(t, listResult)
 	requireContains(t, listResult.stderr, "no stable release found")
+}
+
+// Bundle Init E2E Tests for US-053
+func TestBundleInitNonInteractiveCreatesValidBundle(t *testing.T) {
+	outputDir := t.TempDir()
+	bundleDir := filepath.Join(outputDir, "test-bundle")
+
+	result := runOCWithStdin(t, testEnv(t), strings.NewReader(""), "bundle", "init", "--name", "my-test-bundle", "--output", bundleDir)
+	requireSuccess(t, result)
+	requireContains(t, result.stdout, "done: bundle initialized")
+
+	// Verify manifest was created
+	manifestPath := filepath.Join(bundleDir, "opencode-bundle.manifest.json")
+	manifestData, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("failed to read manifest: %v", err)
+	}
+	requireContains(t, string(manifestData), `"manifest_version": "1.0.0"`)
+	requireContains(t, string(manifestData), `"bundle_name": "my-test-bundle"`)
+	requireContains(t, string(manifestData), `"bundle_version": "0.0.1"`)
+	requireContains(t, string(manifestData), `"name": "default"`)
+
+	// Verify preset was created at root level (per bundle contract)
+	presetPath := filepath.Join(bundleDir, "default.json")
+	_, err = os.ReadFile(presetPath)
+	if err != nil {
+		t.Fatalf("failed to read preset: %v", err)
+	}
+
+	// Verify README was created
+	readmePath := filepath.Join(bundleDir, "README.md")
+	readmeData, err := os.ReadFile(readmePath)
+	if err != nil {
+		t.Fatalf("failed to read README: %v", err)
+	}
+	requireContains(t, string(readmeData), "# my-test-bundle")
+}
+
+func TestBundleInitWithCustomVersion(t *testing.T) {
+	outputDir := t.TempDir()
+	bundleDir := filepath.Join(outputDir, "test-bundle")
+
+	result := runOCWithStdin(t, testEnv(t), strings.NewReader(""), "bundle", "init", "--name", "custom-bundle", "--version", "1.2.3", "--output", bundleDir)
+	requireSuccess(t, result)
+
+	// Verify manifest has custom version
+	manifestPath := filepath.Join(bundleDir, "opencode-bundle.manifest.json")
+	manifestData, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("failed to read manifest: %v", err)
+	}
+	requireContains(t, string(manifestData), `"bundle_version": "1.2.3"`)
+}
+
+func TestBundleInitFailsWithoutNameInNonTTY(t *testing.T) {
+	outputDir := t.TempDir()
+	bundleDir := filepath.Join(outputDir, "test-bundle")
+
+	result := runOCWithStdin(t, testEnv(t), strings.NewReader(""), "bundle", "init", "--output", bundleDir)
+	requireFailure(t, result)
+	requireContains(t, result.stderr, "--name is required in non-interactive mode")
+}
+
+func TestBundleInitFailsIfDirectoryExists(t *testing.T) {
+	outputDir := t.TempDir()
+	bundleDir := filepath.Join(outputDir, "test-bundle")
+
+	// Create the directory first
+	if err := os.MkdirAll(bundleDir, 0755); err != nil {
+		t.Fatalf("failed to create directory: %v", err)
+	}
+
+	result := runOCWithStdin(t, testEnv(t), strings.NewReader(""), "bundle", "init", "--name", "my-bundle", "--output", bundleDir)
+	requireFailure(t, result)
+	requireContains(t, result.stderr, "already exists")
+}
+
+func TestBundleInitForceOverwritesExistingDirectory(t *testing.T) {
+	outputDir := t.TempDir()
+	bundleDir := filepath.Join(outputDir, "test-bundle")
+
+	// Create the directory with a conflicting manifest first
+	if err := os.MkdirAll(bundleDir, 0755); err != nil {
+		t.Fatalf("failed to create directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(bundleDir, "opencode-bundle.manifest.json"), []byte("old manifest"), 0644); err != nil {
+		t.Fatalf("failed to create old manifest: %v", err)
+	}
+
+	result := runOCWithStdin(t, testEnv(t), strings.NewReader(""), "bundle", "init", "--name", "force-bundle", "--output", bundleDir, "--force")
+	requireSuccess(t, result)
+	requireContains(t, result.stdout, "done: bundle initialized")
+
+	// Verify manifest was overwritten
+	manifestPath := filepath.Join(bundleDir, "opencode-bundle.manifest.json")
+	manifestData, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("manifest should exist after force overwrite: %v", err)
+	}
+	requireContains(t, string(manifestData), `"bundle_name": "force-bundle"`)
+	// Old content should be replaced
+	if strings.Contains(string(manifestData), "old manifest") {
+		t.Fatalf("old manifest content should have been overwritten")
+	}
+}
+
+func TestBundleInitCreatesNestedDirectories(t *testing.T) {
+	outputDir := t.TempDir()
+	// Use a nested path that doesn't exist
+	bundleDir := filepath.Join(outputDir, "nested", "deep", "bundle")
+
+	result := runOCWithStdin(t, testEnv(t), strings.NewReader(""), "bundle", "init", "--name", "nested-bundle", "--output", bundleDir)
+	requireSuccess(t, result)
+
+	// Verify manifest was created in nested directory
+	manifestPath := filepath.Join(bundleDir, "opencode-bundle.manifest.json")
+	_, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("failed to read manifest in nested directory: %v", err)
+	}
+}
+
+func TestBundleInitInvalidBundleName(t *testing.T) {
+	outputDir := t.TempDir()
+	bundleDir := filepath.Join(outputDir, "test-bundle")
+
+	// Invalid name with special characters
+	result := runOCWithStdin(t, testEnv(t), strings.NewReader(""), "bundle", "init", "--name", "my@invalid#bundle", "--output", bundleDir)
+	requireFailure(t, result)
+	requireContains(t, result.stderr, "bundle name must contain")
+}
+
+func TestBundleInitGeneratedBundleIsValid(t *testing.T) {
+	env := testEnv(t)
+	outputDir := t.TempDir()
+	bundleDir := filepath.Join(outputDir, "valid-bundle")
+
+	// Create the bundle
+	initResult := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "init", "--name", "valid-bundle", "--output", bundleDir)
+	requireSuccess(t, initResult)
+
+	// Add the bundle as a source
+	addResult := runOCWithStdin(t, env, strings.NewReader(""), "source", "add", bundleDir, "--name", "test-valid")
+	requireSuccess(t, addResult)
+
+	// Try to apply the bundle
+	projectRoot := t.TempDir()
+	applyResult := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "apply", "test-valid", "--preset", "default", "--project-root", projectRoot)
+	requireSuccess(t, applyResult)
+
+	// Verify config was applied
+	configPath := filepath.Join(projectRoot, "opencode.json")
+	_, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("config should have been applied: %v", err)
+	}
+}
+
+func TestBundleInitInteractiveMode(t *testing.T) {
+	outputDir := t.TempDir()
+	bundleDir := filepath.Join(outputDir, "interactive-bundle")
+
+	// Interactive mode: provide bundle name and version via PTY input
+	// Input format: "my-interactive-bundle\n1.0.0\n" (name + newline + version + newline)
+	result := runOCInPTY(t, testEnv(t), "my-interactive-bundle\n1.0.0\n", "bundle", "init", "--output", bundleDir)
+	requireSuccess(t, result)
+	requireContains(t, result.stdout, "done: bundle initialized")
+
+	// Verify manifest was created with provided values
+	manifestPath := filepath.Join(bundleDir, "opencode-bundle.manifest.json")
+	manifestData, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("failed to read manifest: %v", err)
+	}
+	requireContains(t, string(manifestData), `"bundle_name": "my-interactive-bundle"`)
+	requireContains(t, string(manifestData), `"bundle_version": "1.0.0"`)
 }
