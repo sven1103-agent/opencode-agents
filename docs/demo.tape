@@ -29,9 +29,12 @@ Type "oc source add qbicsoftware/opencode-config-bundle --name qbic"
 Enter
 Sleep 1.2s
 
-Type "oc bundle apply --project-root demo-project"
+Type "oc bundle install --project-root demo-project"
 Enter
 Sleep 1200ms
+Type "1"
+Enter
+Sleep 2600ms
 Type "1"
 Enter
 Sleep 2600ms

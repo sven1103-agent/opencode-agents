@@ -26,7 +26,7 @@ Run the demo in a clean temporary directory so the output stays predictable.
 mkdir -p demo-project
 oc --version
 oc source add qbicsoftware/opencode-config-bundle --name qbic
-oc bundle apply --project-root demo-project
+oc bundle install --project-root demo-project
 # select source 1
 # select version 1
 # select preset 1 after the preset list is shown
@@ -49,7 +49,7 @@ Use this sequence when recording:
 
 1. Show the installed CLI version.
 2. Register the official bundle source as `qbic`.
-3. Start `oc bundle apply` without a source argument to trigger interactive selection.
+3. Start `oc bundle install` without a source argument to trigger interactive selection.
 4. Select the registered source.
 5. Select a bundle version.
 6. Show the preset list and choose one entry from the list so viewers can see where the preset comes from.
