@@ -54,8 +54,8 @@ source <(occo completion zsh)
 
 # Or save to completions dir:
 # occo completion zsh > ~/.zsh/completions/_occo
-# Add to ~/.zshrc: fpath=(~/.zsh/completions $fpath)
-# Clear cache: rm -f ~/.zcompdump && exec zsh
+# Add to ~/.zshrc: fpath=(~/.zsh/completions $fpath); ensure fpath is set before `compinit`
+# (Optional) Clear cache: rm -f ~/.zcompdump && exec zsh
 
 # Fish
 occo completion fish > ~/.config/fish/completions/occo.fish
