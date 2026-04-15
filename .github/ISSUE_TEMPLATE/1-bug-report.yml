@@ -1,0 +1,75 @@
+name: Bug Report
+description: Report something that isn't working as expected
+title: "[Bug] "
+labels: ["bug", "triage"]
+assignees: ""
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Run `opencode-helper version` and paste the output here
+      placeholder: e.g. v1.2.3
+    validations:
+      required: true
+  - type: checkboxes
+    id: latest
+    attributes:
+      label: Verification
+      description: Please ensure you're using the latest available version before reporting
+      options:
+        - label: I have verified this issue exists in the latest **available** version (check https://github.com/qbicsoftware/opencode-config-cli/releases)
+          required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Other (please specify in description)
+    validations:
+      required: true
+  - type: input
+    id: shell
+    attributes:
+      label: Shell
+      description: e.g. bash, zsh, PowerShell
+      placeholder: bash
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe what you expected to happen vs what actually happened
+      placeholder: Tell us what you see!
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered list of steps to reproduce the issue
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Please copy and paste any relevant log output (will be formatted as code)
+      render: shell
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Anything else that might be helpful (screenshots, related config, etc.)
