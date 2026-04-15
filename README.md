@@ -25,6 +25,9 @@ A CLI tool (`occo`) that manages OpenCode [configuration bundles](docs/config-bu
 # Install via Go (macOS/Linux)
 go install github.com/qbicsoftware/occo@latest
 
+# Configure the alias
+alias occo='~/go/bin/occo'
+
 # Register a config bundle
 occo source add qbicsoftware/opencode-config-bundle --name qbic
 
