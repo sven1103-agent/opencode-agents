@@ -29,7 +29,7 @@ go install github.com/qbicsoftware/occo@latest
 occo source add qbicsoftware/opencode-config-bundle --name qbic
 
 # Install a preset
-occo bundle install qbic --preset mixed --project-root .
+occo bundle apply qbic --preset mixed --project-root .
 ```
 
 ## Installation
