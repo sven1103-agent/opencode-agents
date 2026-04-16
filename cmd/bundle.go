@@ -692,7 +692,7 @@ func runBundleStatus() error {
 
 	// Display provenance
 	fmt.Println()
-	fmt.Println(styles.SectionHeader("Bundle Status"))
+	fmt.Println(styles.SectionHeader("Bundle Provenance"))
 	fmt.Println(styles.KeyValue("Source ID", prov.SourceID))
 	fmt.Println(styles.KeyValue("Source Name", prov.SourceName))
 	fmt.Println(styles.KeyValue("Source Type", string(prov.SourceType)))
