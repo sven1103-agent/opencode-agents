@@ -288,6 +288,13 @@ func runBundleInstall(sourceRef string, interactivePreset bool) error {
 		}
 	}
 
+	// Adjust prompt file paths in preset content from ./prompts/ to .opencode/prompts/
+	// The CLI normalizes paths to the target installation location (local project)
+	if bundleInstallAssets && len(bundlePresetEntry.PromptFiles) > 0 {
+		adjustedContent := strings.ReplaceAll(string(presetContent), "./prompts/", ".opencode/prompts/")
+		presetContent = []byte(adjustedContent)
+	}
+
 	// Reuse the shared write semantics so bundle apply matches init/preset overwrite behavior.
 	if err := configpreset.WriteConfig(outputPath, string(presetContent), bundleForce); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
@@ -303,7 +310,7 @@ func runBundleInstall(sourceRef string, interactivePreset bool) error {
 		}
 		installedAssets = installed
 
-		for _, a := range installed {
+		for _, a := range installedAssets {
 			fmt.Printf("written: %s\n", a.Destination)
 		}
 	}

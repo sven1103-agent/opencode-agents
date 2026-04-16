@@ -104,6 +104,81 @@ func TestBundleApplyMissingPreset(t *testing.T) {
 	}
 }
 
+// TestBundleApplyAdjustsPromptFilePaths tests that CLI adjusts prompt paths
+func TestBundleApplyAdjustsPromptFilePaths(t *testing.T) {
+	restore := saveRegistry(t)
+	defer restore()
+
+	bundleDir := t.TempDir()
+
+	manifest := `{"manifest_version":"1.0.0","bundle_name":"test","bundle_version":"v1.0.0","presets":[{"name":"test","entrypoint":"test.json","description":"Test","prompt_files":["prompts/coder.md"]}]}`
+	if err := os.WriteFile(filepath.Join(bundleDir, "opencode-bundle.manifest.json"), []byte(manifest), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+
+	preset := `{"agents":{"coder":{"prompt":"{file:./prompts/coder.md}"}}}`
+	if err := os.WriteFile(filepath.Join(bundleDir, "test.json"), []byte(preset), 0644); err != nil {
+		t.Fatalf("failed to write preset: %v", err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(bundleDir, "prompts"), 0755); err != nil {
+		t.Fatalf("failed to create prompts dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(bundleDir, "prompts", "coder.md"), []byte("# coder"), 0644); err != nil {
+		t.Fatalf("failed to write coder.md: %v", err)
+	}
+
+	reg, err := source.LoadRegistry()
+	if err != nil {
+		t.Fatalf("failed to load registry: %v", err)
+	}
+	reg.Sources = []source.Source{{ID: "tid", Name: "t", Type: source.SourceTypeLocalDirectory, Location: bundleDir}}
+	if err := source.SaveRegistry(reg); err != nil {
+		t.Fatalf("failed to save registry: %v", err)
+	}
+
+	origPreset := bundlePreset
+	origAuto := bundleAuto
+	origTTY := bundleInputIsTTY
+	origRoot := bundleProjectRoot
+	origForce := bundleForce
+	origAssets := bundleInstallAssets
+	defer func() {
+		bundlePreset = origPreset
+		bundleAuto = origAuto
+		bundleInputIsTTY = origTTY
+		bundleProjectRoot = origRoot
+		bundleForce = origForce
+		bundleInstallAssets = origAssets
+	}()
+
+	bundlePreset = "test"
+	bundleAuto = true
+	bundleInputIsTTY = func() bool { return false }
+	bundleProjectRoot = t.TempDir()
+	bundleForce = true
+	bundleInstallAssets = true
+
+	err = runBundleInstall("tid", false)
+	if err != nil {
+		t.Fatalf("runBundleInstall() error = %v", err)
+	}
+
+	cfg, err := os.ReadFile(filepath.Join(bundleProjectRoot, "opencode.json"))
+	if err != nil {
+		t.Fatalf("failed to read config: %v", err)
+	}
+	if strings.Contains(string(cfg), "./prompts/") {
+		t.Errorf("config should not contain ./prompts/, got: %s", cfg)
+	}
+	if !strings.Contains(string(cfg), ".opencode/prompts/") {
+		t.Errorf("config should contain .opencode/prompts/, got: %s", cfg)
+	}
+	if _, err := os.Stat(filepath.Join(bundleProjectRoot, ".opencode", "prompts", "coder.md")); err != nil {
+		t.Errorf("prompt should be installed to .opencode/prompts/: %v", err)
+	}
+}
+
 // TestBundleStatusNoProvenance tests status command with no provenance
 func TestBundleStatusNoProvenance(t *testing.T) {
 	origProjectRoot := bundleProjectRoot
