@@ -233,13 +233,14 @@ func HelpCommand(cmd string) string {
 // SectionHeader outputs a prominent section header with separator
 func SectionHeader(title string) string {
 	sep := "─"
+	titleWithColon := title + ":"
 	if ShouldRenderColor() {
 		// Make header more prominent with accent color and bold
-		header := lipgloss.Style{}.Foreground(promptColor).Bold(true).Render(title)
+		header := lipgloss.Style{}.Foreground(promptColor).Bold(true).Render(titleWithColon)
 		separator := MutedStyle.Render(strings.Repeat(sep, 36))
 		return header + "\n" + separator
 	}
-	return title + "\n" + strings.Repeat(sep, 36)
+	return titleWithColon + "\n" + strings.Repeat(sep, 36)
 }
 
 // Highlight outputs highlighted/important text
