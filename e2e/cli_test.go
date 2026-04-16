@@ -93,7 +93,7 @@ func TestLocalDirectoryFlow(t *testing.T) {
 
 	overwriteResult := runOC(t, env, "bundle", "install", sourceID, "--preset", "fixture", "--project-root", projectRoot)
 	requireFailure(t, overwriteResult)
-	requireContains(t, overwriteResult.stderr, "output file exists")
+	requireContains(t, overwriteResult.stdout, "will be overwritten")
 
 	forceResult := runOC(t, env, "bundle", "install", sourceID, "--preset", "fixture", "--project-root", projectRoot, "--force")
 	requireSuccess(t, forceResult)
@@ -210,7 +210,7 @@ func TestGitHubReleaseInteractiveVersionSelectionFlow(t *testing.T) {
 
 	applyResult := runOCInPTY(t, env, "1\n", "bundle", "install", sourceID, "--preset", "fixture", "--project-root", projectRoot)
 	requireSuccess(t, applyResult)
-	requireContains(t, applyResult.stdout, "Available versions for owner/repo:")
+	requireContains(t, applyResult.stdout, "Select Version for owner/repo:")
 	requireContains(t, applyResult.stdout, "v1.3.0-alpha.1 (prerelease)")
 
 	configData, err := os.ReadFile(filepath.Join(projectRoot, "opencode.json"))
