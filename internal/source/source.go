@@ -180,13 +180,7 @@ func migrateLegacyData(data []byte, legacyPath string) (*Registry, error) {
 	// Migrate to new format
 	registry := &Registry{Version: 1, Sources: make([]Source, len(legacySources))}
 	for i, src := range legacySources {
-		registry.Sources[i] = Source{
-			ID:        src.ID,
-			Location:  src.Location,
-			Type:      src.Type,
-			Name:      src.Name,
-			CreatedAt: src.CreatedAt,
-		}
+		registry.Sources[i] = Source(src)
 	}
 
 	// Migrate: save to new location

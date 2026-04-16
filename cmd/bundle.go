@@ -671,7 +671,7 @@ func promptForGitHubReleaseSelection(sourceLocation string, releases []bundle.Gi
 	reader := bufio.NewReader(bundlePromptIn)
 	for {
 		fmt.Fprintln(bundlePromptOut)
-		fmt.Fprintf(bundlePromptOut, styles.SectionHeader("Select Version for "+sourceLocation))
+		fmt.Fprint(bundlePromptOut, styles.SectionHeader("Select Version for "+sourceLocation))
 		for i, release := range releases {
 			label := release.TagName
 			if release.Prerelease {
