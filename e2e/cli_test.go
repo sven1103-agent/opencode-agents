@@ -62,7 +62,7 @@ func TestLocalDirectoryFlow(t *testing.T) {
 	requireContains(t, listResult.stdout, "fixture-dir")
 	requireContains(t, listResult.stdout, "local-directory")
 
-	applyResult := runOC(t, env, "bundle", "apply", sourceID, "--preset", "fixture", "--project-root", projectRoot)
+	applyResult := runOC(t, env, "bundle", "install", sourceID, "--preset", "fixture", "--project-root", projectRoot)
 	requireSuccess(t, applyResult)
 
 	configPath := filepath.Join(projectRoot, "opencode.json")
@@ -91,11 +91,11 @@ func TestLocalDirectoryFlow(t *testing.T) {
 	requireContains(t, statusResult.stdout, "fixture-dir")
 	requireContains(t, statusResult.stdout, "fixture")
 
-	overwriteResult := runOC(t, env, "bundle", "apply", sourceID, "--preset", "fixture", "--project-root", projectRoot)
+	overwriteResult := runOC(t, env, "bundle", "install", sourceID, "--preset", "fixture", "--project-root", projectRoot)
 	requireFailure(t, overwriteResult)
 	requireContains(t, overwriteResult.stderr, "output file exists")
 
-	forceResult := runOC(t, env, "bundle", "apply", sourceID, "--preset", "fixture", "--project-root", projectRoot, "--force")
+	forceResult := runOC(t, env, "bundle", "install", sourceID, "--preset", "fixture", "--project-root", projectRoot, "--force")
 	requireSuccess(t, forceResult)
 	updatedProv := readProvenance(t, provenancePath)
 	if updatedProv.SourceID != sourceID {
@@ -114,7 +114,7 @@ func TestLocalDirectoryApplyBySourceName(t *testing.T) {
 	addResult := runOC(t, env, "source", "add", bundleDir, "--name", "fixture-dir")
 	requireSuccess(t, addResult)
 
-	applyResult := runOC(t, env, "bundle", "apply", "fixture-dir", "--preset", "fixture", "--project-root", projectRoot)
+	applyResult := runOC(t, env, "bundle", "install", "fixture-dir", "--preset", "fixture", "--project-root", projectRoot)
 	requireSuccess(t, applyResult)
 
 	prov := readProvenance(t, filepath.Join(projectRoot, ".opencode", "bundle-provenance.json"))
@@ -137,7 +137,7 @@ func TestLocalArchiveFlow(t *testing.T) {
 	requireSuccess(t, addResult)
 	sourceID := extractSourceID(t, addResult.stdout)
 
-	applyResult := runOC(t, env, "bundle", "apply", sourceID, "--preset", "fixture", "--project-root", projectRoot)
+	applyResult := runOC(t, env, "bundle", "install", sourceID, "--preset", "fixture", "--project-root", projectRoot)
 	requireSuccess(t, applyResult)
 
 	provenancePath := filepath.Join(projectRoot, ".opencode", "bundle-provenance.json")
@@ -168,7 +168,7 @@ func TestGitHubReleaseFlow(t *testing.T) {
 	requireSuccess(t, addResult)
 	sourceID := extractSourceID(t, addResult.stdout)
 
-	applyResult := runOC(t, env, "bundle", "apply", sourceID, "--version", "v1.2.3", "--preset", "fixture", "--project-root", projectRoot)
+	applyResult := runOC(t, env, "bundle", "install", sourceID, "--version", "v1.2.3", "--preset", "fixture", "--project-root", projectRoot)
 	requireSuccess(t, applyResult)
 
 	configPath := filepath.Join(projectRoot, "opencode.json")
@@ -208,7 +208,7 @@ func TestGitHubReleaseInteractiveVersionSelectionFlow(t *testing.T) {
 	requireSuccess(t, addResult)
 	sourceID := extractSourceID(t, addResult.stdout)
 
-	applyResult := runOCInPTY(t, env, "1\n", "bundle", "apply", sourceID, "--preset", "fixture", "--project-root", projectRoot)
+	applyResult := runOCInPTY(t, env, "1\n", "bundle", "install", sourceID, "--preset", "fixture", "--project-root", projectRoot)
 	requireSuccess(t, applyResult)
 	requireContains(t, applyResult.stdout, "Available versions for owner/repo:")
 	requireContains(t, applyResult.stdout, "v1.3.0-alpha.1 (prerelease)")
@@ -246,7 +246,7 @@ func TestGitHubReleaseApplyWithoutVersionNonInteractiveFails(t *testing.T) {
 	requireSuccess(t, addResult)
 	sourceID := extractSourceID(t, addResult.stdout)
 
-	applyResult := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "apply", sourceID, "--preset", "fixture", "--project-root", projectRoot)
+	applyResult := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "install", sourceID, "--preset", "fixture", "--project-root", projectRoot)
 	requireFailure(t, applyResult)
 	requireContains(t, applyResult.stderr, "--version is required for github-release sources outside interactive mode")
 	if strings.Contains(applyResult.stderr, "Select a version") || strings.Contains(applyResult.stdout, "Select a version") {
@@ -254,14 +254,14 @@ func TestGitHubReleaseApplyWithoutVersionNonInteractiveFails(t *testing.T) {
 	}
 }
 
-func TestBundleApplyFailsForUnknownSource(t *testing.T) {
+func TestBundleInstallFailsForUnknownSource(t *testing.T) {
 	projectRoot := t.TempDir()
-	result := runOC(t, testEnv(t), "bundle", "apply", "missing-id", "--preset", "fixture", "--project-root", projectRoot)
+	result := runOC(t, testEnv(t), "bundle", "install", "missing-id", "--preset", "fixture", "--project-root", projectRoot)
 	requireFailure(t, result)
 	requireContains(t, result.stderr, "source not found")
 }
 
-func TestBundleApplyRequiresPresetOutsideTTY(t *testing.T) {
+func TestBundleInstallRequiresPresetOutsideTTY(t *testing.T) {
 	env := testEnv(t)
 	bundleDir := copyFixtureBundle(t)
 	projectRoot := t.TempDir()
@@ -269,16 +269,16 @@ func TestBundleApplyRequiresPresetOutsideTTY(t *testing.T) {
 	addResult := runOC(t, env, "source", "add", bundleDir, "--name", "fixture-dir")
 	requireSuccess(t, addResult)
 
-	applyResult := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "apply", "fixture-dir", "--project-root", projectRoot)
+	applyResult := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "install", "fixture-dir", "--project-root", projectRoot)
 	requireFailure(t, applyResult)
 	requireContains(t, applyResult.stderr, "--preset is required outside interactive mode")
 }
 
-func TestBundleApplyNoArgsFailsInNonTTY(t *testing.T) {
+func TestBundleInstallNoArgsFailsInNonTTY(t *testing.T) {
 	// When run without arguments in non-TTY (e2e tests), should fail with helpful message
 	// Use empty stdin to ensure no TTY is detected
 	projectRoot := t.TempDir()
-	result := runOCWithStdin(t, testEnv(t), strings.NewReader(""), "bundle", "apply", "--project-root", projectRoot)
+	result := runOCWithStdin(t, testEnv(t), strings.NewReader(""), "bundle", "install", "--project-root", projectRoot)
 	requireFailure(t, result)
 	// When there are no sources, it should fail with "no sources registered"
 	// OR when there are sources but no TTY, fail with "source-ref is required"
@@ -286,7 +286,7 @@ func TestBundleApplyNoArgsFailsInNonTTY(t *testing.T) {
 	requireContains(t, result.stderr, "non-interactive mode")
 }
 
-func TestBundleApplyAutoFlagRequiresSourceRef(t *testing.T) {
+func TestBundleInstallAutoFlagRequiresSourceRef(t *testing.T) {
 	// --auto flag should require source-ref argument regardless of TTY
 	env := testEnv(t)
 	bundleDir := copyFixtureBundle(t)
@@ -296,13 +296,13 @@ func TestBundleApplyAutoFlagRequiresSourceRef(t *testing.T) {
 
 	projectRoot := t.TempDir()
 	// Using --auto without source-ref should fail
-	result := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "apply", "--auto", "--project-root", projectRoot)
+	result := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "install", "--auto", "--project-root", projectRoot)
 	requireFailure(t, result)
 	requireContains(t, result.stderr, "source-ref is required")
 	requireContains(t, result.stderr, "--auto")
 }
 
-func TestBundleApplyAutoFlagWithPresetRequiresSource(t *testing.T) {
+func TestBundleInstallAutoFlagWithPresetRequiresSource(t *testing.T) {
 	// --auto with --preset but no source-ref should fail
 	env := testEnv(t)
 	bundleDir := copyFixtureBundle(t)
@@ -311,7 +311,7 @@ func TestBundleApplyAutoFlagWithPresetRequiresSource(t *testing.T) {
 	requireSuccess(t, addResult)
 
 	projectRoot := t.TempDir()
-	result := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "apply", "--auto", "--preset", "fixture", "--project-root", projectRoot)
+	result := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "install", "--auto", "--preset", "fixture", "--project-root", projectRoot)
 	requireFailure(t, result)
 	requireContains(t, result.stderr, "source-ref is required")
 }
@@ -321,6 +321,18 @@ func TestSourceAddFailsWithoutManifest(t *testing.T) {
 	result := runOC(t, testEnv(t), "source", "add", bundleDir)
 	requireFailure(t, result)
 	requireContains(t, result.stderr, "bundle manifest not found")
+}
+
+// TestBundleInstallCommandExists verifies the bundle install command exists (not apply)
+// This test ensures we don't accidentally revert to the old "apply" command name
+func TestBundleInstallCommandExists(t *testing.T) {
+	env := testEnv(t)
+	result := runOC(t, env, "bundle", "install", "--help")
+	requireSuccess(t, result)
+	// Verify the help output mentions "install" not "apply"
+	requireContains(t, result.stdout, "install [source-ref]")
+	// Ensure "apply" is not mentioned as the command name
+	requireNotContains(t, result.stdout, "apply [source-ref]")
 }
 
 func TestInvalidTarballFailsOnApply(t *testing.T) {
@@ -335,7 +347,7 @@ func TestInvalidTarballFailsOnApply(t *testing.T) {
 	sourceID := extractSourceID(t, addResult.stdout)
 
 	projectRoot := t.TempDir()
-	applyResult := runOC(t, env, "bundle", "apply", sourceID, "--preset", "fixture", "--project-root", projectRoot)
+	applyResult := runOC(t, env, "bundle", "install", sourceID, "--preset", "fixture", "--project-root", projectRoot)
 	requireFailure(t, applyResult)
 	requireContains(t, applyResult.stderr, "failed to resolve source")
 	if runtime.GOOS == "darwin" {
@@ -453,6 +465,13 @@ func requireContains(t *testing.T, haystack, needle string) {
 	t.Helper()
 	if !strings.Contains(haystack, needle) {
 		t.Fatalf("expected %q to contain %q", haystack, needle)
+	}
+}
+
+func requireNotContains(t *testing.T, haystack, needle string) {
+	t.Helper()
+	if strings.Contains(haystack, needle) {
+		t.Fatalf("expected %q to NOT contain %q", haystack, needle)
 	}
 }
 
@@ -882,7 +901,7 @@ func TestBundleInitGeneratedBundleIsValid(t *testing.T) {
 
 	// Try to apply the bundle
 	projectRoot := t.TempDir()
-	applyResult := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "apply", "test-valid", "--preset", "default", "--project-root", projectRoot)
+	applyResult := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "install", "test-valid", "--preset", "default", "--project-root", projectRoot)
 	requireSuccess(t, applyResult)
 
 	// Verify config was applied

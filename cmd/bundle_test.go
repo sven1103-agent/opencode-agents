@@ -53,9 +53,9 @@ func TestBundleApplyNoSource(t *testing.T) {
 	bundleProjectRoot = "."
 	bundleDryRun = false
 
-	err := runBundleApply("nonexistent-id", false)
+	err := runBundleInstall("nonexistent-id", false)
 	if err == nil {
-		t.Error("runBundleApply() expected error for nonexistent source")
+		t.Error("runBundleInstall() expected error for nonexistent source")
 	}
 }
 
@@ -95,12 +95,12 @@ func TestBundleApplyMissingPreset(t *testing.T) {
 	bundleInputIsTTY = func() bool { return false }
 	bundleProjectRoot = t.TempDir()
 
-	err := runBundleApply("abc12345", false)
+	err := runBundleInstall("abc12345", false)
 	if err == nil {
-		t.Error("runBundleApply() expected error when preset is missing")
+		t.Error("runBundleInstall() expected error when preset is missing")
 	}
 	if !strings.Contains(err.Error(), "--preset is required outside interactive mode") {
-		t.Fatalf("runBundleApply() error = %v", err)
+		t.Fatalf("runBundleInstall() error = %v", err)
 	}
 }
 
@@ -219,8 +219,8 @@ func TestBundleApplyPassesVersionForGitHubSources(t *testing.T) {
 		return bundleRoot, func() {}, nil
 	}
 
-	if err := runBundleApply("github1", false); err != nil {
-		t.Fatalf("runBundleApply() error = %v", err)
+	if err := runBundleInstall("github1", false); err != nil {
+		t.Fatalf("runBundleInstall() error = %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(projectRoot, "opencode.json")); err != nil {
 		t.Fatalf("expected opencode.json to be written: %v", err)
@@ -291,8 +291,8 @@ func TestBundleApplyInteractiveSelectsGitHubReleaseVersion(t *testing.T) {
 		return bundleRoot, func() {}, nil
 	}
 
-	if err := runBundleApply("github1", false); err != nil {
-		t.Fatalf("runBundleApply() error = %v", err)
+	if err := runBundleInstall("github1", false); err != nil {
+		t.Fatalf("runBundleInstall() error = %v", err)
 	}
 }
 
@@ -329,12 +329,12 @@ func TestBundleApplyGitHubSourceRequiresVersionOutsideInteractiveMode(t *testing
 		return []bundle.GitHubReleaseVersion{{TagName: "v1.3.0", Prerelease: false}, {TagName: "v1.4.0-alpha.1", Prerelease: true}}, nil
 	}
 
-	err := runBundleApply("github1", false)
+	err := runBundleInstall("github1", false)
 	if err == nil {
-		t.Fatal("runBundleApply() error = nil, want version-selection error")
+		t.Fatal("runBundleInstall() error = nil, want version-selection error")
 	}
 	if !strings.Contains(err.Error(), "--version is required for github-release sources outside interactive mode") {
-		t.Fatalf("runBundleApply() error = %v", err)
+		t.Fatalf("runBundleInstall() error = %v", err)
 	}
 }
 
@@ -371,12 +371,12 @@ func TestBundleApplyGitHubSourceReportsPrereleaseOnlyOutsideInteractiveMode(t *t
 		return []bundle.GitHubReleaseVersion{{TagName: "v1.4.0-alpha.1", Prerelease: true}, {TagName: "v1.3.0-alpha.2", Prerelease: true}}, nil
 	}
 
-	err := runBundleApply("github1", false)
+	err := runBundleInstall("github1", false)
 	if err == nil {
-		t.Fatal("runBundleApply() error = nil, want prerelease-only version-selection error")
+		t.Fatal("runBundleInstall() error = nil, want prerelease-only version-selection error")
 	}
 	if !strings.Contains(err.Error(), "only prereleases are available") {
-		t.Fatalf("runBundleApply() error = %v", err)
+		t.Fatalf("runBundleInstall() error = %v", err)
 	}
 }
 
@@ -413,12 +413,12 @@ func TestBundleApplyGitHubSourceSinglePrereleaseStillRequiresVersionOutsideInter
 		return []bundle.GitHubReleaseVersion{{TagName: "v1.4.0-alpha.1", Prerelease: true}}, nil
 	}
 
-	err := runBundleApply("github1", false)
+	err := runBundleInstall("github1", false)
 	if err == nil {
-		t.Fatal("runBundleApply() error = nil, want prerelease-only version-selection error")
+		t.Fatal("runBundleInstall() error = nil, want prerelease-only version-selection error")
 	}
 	if !strings.Contains(err.Error(), "only prereleases are available") {
-		t.Fatalf("runBundleApply() error = %v", err)
+		t.Fatalf("runBundleInstall() error = %v", err)
 	}
 }
 
@@ -478,21 +478,21 @@ func TestCompleteBundlePresetNamesGitHubSourceUsesNonInteractiveInspection(t *te
 	}
 }
 
-// TestBundleApplyFlags tests that bundle apply flags are properly configured
-func TestBundleApplyFlags(t *testing.T) {
-	if bundleApplyCmd.Flags().Lookup("preset") == nil {
+// TestBundleInstallFlags tests that bundle install flags are properly configured
+func TestBundleInstallFlags(t *testing.T) {
+	if bundleInstallCmd.Flags().Lookup("preset") == nil {
 		t.Error("preset flag should exist on bundle apply command")
 	}
-	if bundleApplyCmd.Flags().Lookup("auto") == nil {
+	if bundleInstallCmd.Flags().Lookup("auto") == nil {
 		t.Error("auto flag should exist on bundle apply command")
 	}
-	if bundleApplyCmd.Flags().Lookup("project-root") == nil {
+	if bundleInstallCmd.Flags().Lookup("project-root") == nil {
 		t.Error("project-root flag should exist on bundle apply command")
 	}
-	if bundleApplyCmd.Flags().Lookup("force") == nil {
+	if bundleInstallCmd.Flags().Lookup("force") == nil {
 		t.Error("force flag should exist on bundle apply command")
 	}
-	if bundleApplyCmd.Flags().Lookup("dry-run") == nil {
+	if bundleInstallCmd.Flags().Lookup("dry-run") == nil {
 		t.Error("dry-run flag should exist on bundle apply command")
 	}
 }
@@ -512,7 +512,7 @@ func TestBundleUpdateFlags(t *testing.T) {
 }
 
 func TestBundleApplyVersionFlagExists(t *testing.T) {
-	if bundleApplyCmd.Flags().Lookup("version") == nil {
+	if bundleInstallCmd.Flags().Lookup("version") == nil {
 		t.Fatal("version flag should exist on bundle apply command")
 	}
 }
@@ -557,12 +557,12 @@ func TestBundleApplyRejectsVersionForLocalSources(t *testing.T) {
 	bundleProjectRoot = projectRoot
 	bundleVersion = "v1.2.3"
 
-	err := runBundleApply("local1", false)
+	err := runBundleInstall("local1", false)
 	if err == nil {
-		t.Fatal("runBundleApply() error = nil, want error")
+		t.Fatal("runBundleInstall() error = nil, want error")
 	}
 	if !strings.Contains(err.Error(), "--version is only supported for github-release sources") {
-		t.Fatalf("runBundleApply() error = %v", err)
+		t.Fatalf("runBundleInstall() error = %v", err)
 	}
 }
 
@@ -603,8 +603,8 @@ func TestBundleApplyResolvesSourceByName(t *testing.T) {
 	bundlePreset = "test"
 	bundleProjectRoot = projectRoot
 
-	if err := runBundleApply("qbic", false); err != nil {
-		t.Fatalf("runBundleApply() error = %v", err)
+	if err := runBundleInstall("qbic", false); err != nil {
+		t.Fatalf("runBundleInstall() error = %v", err)
 	}
 
 	prov, err := bundle.LoadProvenance(projectRoot)
@@ -630,12 +630,12 @@ func TestBundleApplyRejectsAmbiguousSourceName(t *testing.T) {
 	bundlePreset = "test"
 	defer func() { bundlePreset = origPreset }()
 
-	err := runBundleApply("qbic", false)
+	err := runBundleInstall("qbic", false)
 	if err == nil {
-		t.Fatal("runBundleApply() error = nil, want ambiguous source error")
+		t.Fatal("runBundleInstall() error = nil, want ambiguous source error")
 	}
 	if !strings.Contains(err.Error(), "ambiguous") || !strings.Contains(err.Error(), "id-1") || !strings.Contains(err.Error(), "id-2") {
-		t.Fatalf("runBundleApply() error = %v", err)
+		t.Fatalf("runBundleInstall() error = %v", err)
 	}
 }
 
@@ -684,8 +684,8 @@ func TestBundleApplyInteractiveSelectsPreset(t *testing.T) {
 	bundlePromptIn = strings.NewReader("2\n")
 	bundlePromptOut = io.Discard
 
-	if err := runBundleApply("qbic", false); err != nil {
-		t.Fatalf("runBundleApply() error = %v", err)
+	if err := runBundleInstall("qbic", false); err != nil {
+		t.Fatalf("runBundleInstall() error = %v", err)
 	}
 
 	content, err := os.ReadFile(filepath.Join(projectRoot, "opencode.json"))
