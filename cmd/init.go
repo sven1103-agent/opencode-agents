@@ -8,6 +8,7 @@ import (
 
 	"github.com/qbicsoftware/occo/internal/preset"
 	"github.com/qbicsoftware/occo/internal/schema"
+	"github.com/qbicsoftware/occo/internal/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -92,8 +93,8 @@ func runInit() error {
 
 	// Dry run mode
 	if initDryRun {
-		fmt.Printf("dry-run: write config to %s\n", outputPath)
-		fmt.Printf("dry-run: install schemas to %s/.opencode/schemas/\n", projectRoot)
+		fmt.Println(styles.DryRun(fmt.Sprintf("write config to %s", outputPath)))
+		fmt.Println(styles.DryRun(fmt.Sprintf("install schemas to %s/.opencode/schemas/", projectRoot)))
 		return nil
 	}
 
@@ -101,16 +102,16 @@ func runInit() error {
 	if err := preset.WriteConfig(outputPath, configData, initForce); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
-	fmt.Printf("written: %s\n", outputPath)
+	fmt.Println(styles.Written(outputPath))
 
 	// Install schemas
 	opencodeDir := filepath.Join(projectRoot, ".opencode")
 	if err := schema.InstallAll(opencodeDir, initForce); err != nil {
 		return fmt.Errorf("failed to install schemas: %w", err)
 	}
-	fmt.Printf("written: %s/.opencode/schemas/\n", projectRoot)
+	fmt.Println(styles.Written(fmt.Sprintf("%s/.opencode/schemas/", projectRoot)))
 
-	fmt.Println("done: init complete")
+	fmt.Println(styles.Done("init complete"))
 
 	return nil
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/qbicsoftware/occo/internal/bundle"
 	"github.com/qbicsoftware/occo/internal/source"
+	"github.com/qbicsoftware/occo/internal/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -107,7 +108,7 @@ func runSourceAdd(location string) error {
 		return fmt.Errorf("failed to add source: %w", err)
 	}
 
-	fmt.Printf("Source added successfully:\n")
+	fmt.Println(styles.Success("Source added successfully:"))
 	fmt.Printf("  ID:       %s\n", s.ID)
 	fmt.Printf("  Name:     %s\n", s.Name)
 	fmt.Printf("  Type:     %s\n", s.Type)
@@ -128,8 +129,8 @@ func runSourceList() error {
 	}
 
 	if len(sources) == 0 {
-		fmt.Println("No sources registered.")
-		fmt.Println("Use 'oc source add <location>' to register a source.")
+		fmt.Println(styles.Info("No sources registered."))
+		fmt.Println(styles.Info("Use 'oc source add <location>' to register a source."))
 		return nil
 	}
 
@@ -167,21 +168,21 @@ func runSourceListWithPresets() error {
 		if string(src.Type) == "github-release" {
 			versionTag, err = inspectGitHubBundleVersion(src.Location, "")
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "warning: failed to inspect source %s (%s): %v\n", src.Name, src.ID, err)
+				fmt.Fprintln(os.Stderr, styles.Warning(fmt.Sprintf("failed to inspect source %s (%s): %v", src.Name, src.ID, err)))
 				continue
 			}
 		}
 
 		bundleRoot, cleanup, err := bundle.ResolveToLocal(string(src.Type), src.Location, versionTag)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to inspect source %s (%s): %v\n", src.Name, src.ID, err)
+			fmt.Fprintln(os.Stderr, styles.Warning(fmt.Sprintf("failed to inspect source %s (%s): %v", src.Name, src.ID, err)))
 			continue
 		}
 
 		manifest, err := bundle.LoadManifest(filepath.Join(bundleRoot, "opencode-bundle.manifest.json"))
 		cleanup()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to inspect source %s (%s): %v\n", src.Name, src.ID, err)
+			fmt.Fprintln(os.Stderr, styles.Warning(fmt.Sprintf("failed to inspect source %s (%s): %v", src.Name, src.ID, err)))
 			continue
 		}
 
@@ -216,6 +217,6 @@ func runSourceRemove(id string) error {
 		return fmt.Errorf("failed to remove source: %w", err)
 	}
 
-	fmt.Printf("Source '%s' removed successfully.\n", id)
+	fmt.Println(styles.Success(fmt.Sprintf("Source '%s' removed successfully.", id)))
 	return nil
 }

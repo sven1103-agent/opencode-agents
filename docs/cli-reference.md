@@ -8,6 +8,34 @@ Complete reference for the `occo` CLI commands.
 |--------|-------------|
 | `--help` | Show help |
 | `--version` | Show version |
+| `--color` | Color output mode: `auto`, `always`, `never` (default: `always`) |
+
+### Color Output
+
+The CLI supports styled output with accessible color + icon scheme:
+
+| Message Type | Style |
+|--------------|-------|
+| Errors | Red + ✗ |
+| Warnings | Yellow + ⚠ |
+| Success | Green + ✓ |
+| Info | Blue + ℹ |
+| Interactive prompts | Purple |
+
+**Color Modes:**
+
+```sh
+# Force colored output (default)
+occo --color=always <command>
+
+# Detect terminal capability
+occo --color=auto <command>
+
+# Disable colored output (for CI/CD pipelines)
+occo --color=never <command>
+```
+
+Use `--color=never` when running in CI/CD environments or when piping output.
 
 ## Source Commands
 
