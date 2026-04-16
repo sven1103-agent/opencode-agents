@@ -27,12 +27,12 @@ A config source is a location (local directory, archive, or GitHub release)
 that contains OpenCode configuration bundles.
 
 Examples:
-  oc source add ./my-config-bundle
-  oc source add ./release.tar.gz --name my-archive
-  oc source add owner/repo --name my-config
-  oc source add https://github.com/owner/repo/releases/tag/v1.2.3
-  oc source list
-  oc source remove abc12345`,
+  occo source add ./my-config-bundle
+  occo source add ./release.tar.gz --name my-archive
+  occo source add owner/repo --name my-config
+  occo source add https://github.com/owner/repo/releases/tag/v1.2.3
+  occo source list
+  occo source remove abc12345`,
 }
 
 // sourceAddCmd adds a new config source
@@ -47,11 +47,11 @@ The location can be:
   - A GitHub repository or release URL
 
 Examples:
-  oc source add ./my-config-bundle
-  oc source add ./release.tar.gz --name my-archive
-  oc source add owner/repo
-  oc source add github.com/owner/repo
-  oc source add https://github.com/owner/repo/releases/tag/v1.2.3`,
+  occo source add ./my-config-bundle
+  occo source add ./release.tar.gz --name my-archive
+  occo source add owner/repo
+  occo source add github.com/owner/repo
+  occo source add https://github.com/owner/repo/releases/tag/v1.2.3`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runSourceAdd(args[0])
@@ -67,7 +67,7 @@ var sourceListCmd = &cobra.Command{
 Shows each source's ID, name, type, and location.
 
 Example:
-  oc source list`,
+  occo source list`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runSourceList()
 	},
@@ -80,7 +80,7 @@ var sourceRemoveCmd = &cobra.Command{
 	Long: `Remove a registered config source by its ID.
 
 Example:
-  oc source remove abc12345`,
+  occo source remove abc12345`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runSourceRemove(args[0])
@@ -108,12 +108,13 @@ func runSourceAdd(location string) error {
 		return fmt.Errorf("failed to add source: %w", err)
 	}
 
-	fmt.Println(styles.Success("Source added successfully:"))
-	fmt.Printf("  ID:       %s\n", s.ID)
-	fmt.Printf("  Name:     %s\n", s.Name)
-	fmt.Printf("  Type:     %s\n", s.Type)
-	fmt.Printf("  Location: %s\n", s.Location)
-	fmt.Printf("  Created:  %s\n", s.CreatedAt)
+	fmt.Println()
+	fmt.Println(styles.Success("Source added successfully"))
+	fmt.Println(styles.KeyValue("ID", s.ID))
+	fmt.Println(styles.KeyValue("Name", s.Name))
+	fmt.Println(styles.KeyValue("Type", string(s.Type)))
+	fmt.Println(styles.KeyValue("Location", s.Location))
+	fmt.Println(styles.KeyValueMuted("Created", s.CreatedAt))
 
 	return nil
 }
@@ -129,22 +130,34 @@ func runSourceList() error {
 	}
 
 	if len(sources) == 0 {
+		fmt.Println()
 		fmt.Println(styles.Info("No sources registered."))
-		fmt.Println(styles.Info("Use 'oc source add <location>' to register a source."))
+		fmt.Println(styles.Muted("Use 'occo source add <location>' to register a source."))
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintf(w, "ID\tNAME\tTYPE\tLOCATION\n")
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", "───", "────", "────", "────────\n")
+	// Sort sources by type, then by name
+	for i := 0; i < len(sources)-1; i++ {
+		for j := i + 1; j < len(sources); j++ {
+			if sources[i].Type > sources[j].Type ||
+				(sources[i].Type == sources[j].Type && sources[i].Name > sources[j].Name) {
+				sources[i], sources[j] = sources[j], sources[i]
+			}
+		}
+	}
 
+	fmt.Println()
+	fmt.Println(styles.SectionHeader("Registered Sources"))
+
+	// Build table data
+	headers := []string{"ID", "NAME", "TYPE", "LOCATION"}
+	var rows [][]string
 	for _, s := range sources {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", s.ID, s.Name, s.Type, s.Location)
+		rows = append(rows, []string{s.ID, s.Name, string(s.Type), s.Location})
 	}
 
-	if err := w.Flush(); err != nil {
-		return fmt.Errorf("failed to write output: %w", err)
-	}
+	// Render modern table
+	fmt.Println(styles.TableStyle(headers, rows))
 
 	return nil
 }
@@ -155,12 +168,15 @@ func runSourceListWithPresets() error {
 		return fmt.Errorf("failed to list sources: %w", err)
 	}
 	if len(sources) == 0 {
-		return fmt.Errorf("no sources registered. Use 'oc source add <location>' first")
+		return fmt.Errorf("no sources registered. Use 'occo source add <location>' first")
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintf(w, "SOURCE_REF\tSOURCE_ID\tBUNDLE_VERSION\tPRESET\tDESCRIPTION\n")
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", "──────────", "─────────", "──────────────", "──────", "───────────")
+	fmt.Println()
+	fmt.Println(styles.SectionHeader("Available Presets"))
+
+	w := tabwriter.NewWriter(os.Stdout, 20, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "  SOURCE\t  ID\t  VERSION\t  PRESET\t  DESCRIPTION")
+	fmt.Fprintln(w, "  ──────\t  ──\t  ───────\t  ──────\t  ───────────")
 
 	foundPreset := false
 	for _, src := range sources {
@@ -192,7 +208,11 @@ func runSourceListWithPresets() error {
 		}
 		for _, preset := range manifest.Presets {
 			foundPreset = true
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", ref, src.ID, manifest.BundleVersion, preset.Name, preset.Description)
+			desc := preset.Description
+			if desc == "" {
+				desc = "-"
+			}
+			fmt.Fprintf(w, "  %s\t  %s\t  %s\t  %s\t  %s\n", ref, src.ID, manifest.BundleVersion, preset.Name, desc)
 		}
 	}
 

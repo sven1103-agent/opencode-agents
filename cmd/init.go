@@ -93,8 +93,12 @@ func runInit() error {
 
 	// Dry run mode
 	if initDryRun {
+		fmt.Println(styles.SectionHeader("Dry Run"))
+		fmt.Println(styles.SubHeader("Operations"))
 		fmt.Println(styles.DryRun(fmt.Sprintf("write config to %s", outputPath)))
 		fmt.Println(styles.DryRun(fmt.Sprintf("install schemas to %s/.opencode/schemas/", projectRoot)))
+		fmt.Println()
+		fmt.Println(styles.Done("dry-run complete"))
 		return nil
 	}
 
@@ -111,6 +115,7 @@ func runInit() error {
 	}
 	fmt.Println(styles.Written(fmt.Sprintf("%s/.opencode/schemas/", projectRoot)))
 
+	fmt.Println()
 	fmt.Println(styles.Done("init complete"))
 
 	return nil

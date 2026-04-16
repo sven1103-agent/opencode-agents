@@ -4,6 +4,7 @@ package styles
 
 import (
 	"os"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -52,18 +53,21 @@ func isTerminal(f *os.File) bool {
 	return info.Mode()&os.ModeCharDevice != 0
 }
 
-// Define color palette
+// Sensible color palette - muted, professional tones
 var (
-	errorColor   = lipgloss.Color("#FF5555")
-	warningColor = lipgloss.Color("#F1FA8C")
-	successColor = lipgloss.Color("#50FA7B")
-	infoColor    = lipgloss.Color("#8BE9FD")
-	promptColor  = lipgloss.Color("#BD93F9")
+	errorColor   = lipgloss.Color("#E06C75") // Muted red
+	warningColor = lipgloss.Color("#E5C07B") // Muted yellow
+	successColor = lipgloss.Color("#98C379") // Muted green
+	infoColor    = lipgloss.Color("#61AFEF") // Muted blue
+	promptColor  = lipgloss.Color("#C678DD") // Muted purple
+	keyColor     = lipgloss.Color("#D19A66") // Muted orange for keys
+	valueColor   = lipgloss.Color("#ABB2BF") // Light gray for values
+	mutedColor   = lipgloss.Color("#5C6370") // Gray for secondary text
 )
 
-// Define style definitions
+// Style definitions
 
-// ErrorStyle for error messages (red + ✗)
+// ErrorStyle for error messages
 var ErrorStyle = lipgloss.Style{}.
 	Foreground(errorColor).
 	Bold(true)
@@ -73,7 +77,7 @@ func ErrorIcon() string {
 	return "✗"
 }
 
-// WarningStyle for warning messages (yellow + ⚠)
+// WarningStyle for warning messages
 var WarningStyle = lipgloss.Style{}.
 	Foreground(warningColor).
 	Bold(true)
@@ -83,7 +87,7 @@ func WarningIcon() string {
 	return "⚠"
 }
 
-// SuccessStyle for success messages (green + ✓)
+// SuccessStyle for success messages
 var SuccessStyle = lipgloss.Style{}.
 	Foreground(successColor).
 	Bold(true)
@@ -93,7 +97,7 @@ func SuccessIcon() string {
 	return "✓"
 }
 
-// InfoStyle for info messages (blue + ℹ)
+// InfoStyle for info messages
 var InfoStyle = lipgloss.Style{}.
 	Foreground(infoColor).
 	Bold(true)
@@ -103,10 +107,21 @@ func InfoIcon() string {
 	return "ℹ"
 }
 
-// PromptStyle for interactive prompts (purple)
+// PromptStyle for interactive prompts
 var PromptStyle = lipgloss.Style{}.
-	Foreground(promptColor).
-	Bold(true)
+	Foreground(promptColor)
+
+// KeyStyle for key labels (subtle orange)
+var KeyStyle = lipgloss.Style{}.
+	Foreground(keyColor)
+
+// ValueStyle for values (light gray)
+var ValueStyle = lipgloss.Style{}.
+	Foreground(valueColor)
+
+// MutedStyle for secondary/muted text
+var MutedStyle = lipgloss.Style{}.
+	Foreground(mutedColor)
 
 // HelpHeaderStyle for help text headers
 var HelpHeaderStyle = lipgloss.Style{}.
@@ -117,7 +132,7 @@ var HelpHeaderStyle = lipgloss.Style{}.
 var HelpCommandStyle = lipgloss.Style{}.
 	Foreground(promptColor)
 
-// Output styles that respect color mode
+// Output functions that respect color mode
 
 // Error outputs an error message with icon
 func Error(msg string) string {
@@ -151,7 +166,7 @@ func Info(msg string) string {
 	return InfoIcon() + " " + msg
 }
 
-// Prompt outputs a prompt message
+// Prompt outputs a prompt message (no icon, just color)
 func Prompt(msg string) string {
 	if ShouldRenderColor() {
 		return PromptStyle.Render(msg)
@@ -213,4 +228,165 @@ func HelpCommand(cmd string) string {
 		return HelpCommandStyle.Render(cmd)
 	}
 	return cmd
+}
+
+// SectionHeader outputs a prominent section header with separator
+func SectionHeader(title string) string {
+	sep := "─"
+	titleWithColon := title + ":"
+	if ShouldRenderColor() {
+		// Make header more prominent with accent color and bold
+		header := lipgloss.Style{}.Foreground(promptColor).Bold(true).Render(titleWithColon)
+		separator := MutedStyle.Render(strings.Repeat(sep, 36))
+		return header + "\n" + separator
+	}
+	return titleWithColon + "\n" + strings.Repeat(sep, 36)
+}
+
+// Highlight outputs highlighted/important text
+func Highlight(msg string) string {
+	if ShouldRenderColor() {
+		return lipgloss.Style{}.Foreground(promptColor).Bold(true).Render(msg)
+	}
+	return msg
+}
+
+// SubHeader outputs a subsection header (subtle)
+func SubHeader(title string) string {
+	if ShouldRenderColor() {
+		return KeyStyle.Render("▸ " + title)
+	}
+	return "▸ " + title
+}
+
+// KeyValue outputs a key-value pair
+func KeyValue(key, value string) string {
+	if ShouldRenderColor() {
+		return KeyStyle.Render(key+":") + " " + ValueStyle.Render(value)
+	}
+	return key + ": " + value
+}
+
+// KeyValueMuted outputs a key-value pair with muted value
+func KeyValueMuted(key, value string) string {
+	if ShouldRenderColor() {
+		return KeyStyle.Render(key+":") + " " + MutedStyle.Render(value)
+	}
+	return key + ": " + value
+}
+
+// Muted outputs muted/secondary text
+func Muted(msg string) string {
+	if ShouldRenderColor() {
+		return MutedStyle.Render(msg)
+	}
+	return msg
+}
+
+// TableStyle renders a modern table with box-drawing characters
+func TableStyle(headers []string, rows [][]string) string {
+	if len(headers) == 0 {
+		return ""
+	}
+
+	// Calculate column widths
+	widths := make([]int, len(headers))
+	for i, h := range headers {
+		widths[i] = len(h)
+	}
+	for _, row := range rows {
+		for i, cell := range row {
+			if i < len(widths) && len(cell) > widths[i] {
+				widths[i] = len(cell)
+			}
+		}
+	}
+
+	// Add padding
+	for i := range widths {
+		widths[i] += 2 // 1 space on each side
+	}
+
+	var lines []string
+
+	// Build top border
+	topBorder := "┌"
+	for i, w := range widths {
+		if i > 0 {
+			topBorder += "┬"
+		}
+		topBorder += strings.Repeat("─", w)
+	}
+	topBorder += "┐"
+	if ShouldRenderColor() {
+		lines = append(lines, MutedStyle.Render(topBorder))
+	} else {
+		lines = append(lines, topBorder)
+	}
+
+	// Build header row
+	headerRow := "│"
+	for i, h := range headers {
+		padding := widths[i] - len(h)
+		leftPad := padding / 2
+		rightPad := padding - leftPad
+		if ShouldRenderColor() {
+			headerRow += lipgloss.Style{}.Foreground(promptColor).Bold(true).Render(strings.Repeat(" ", leftPad)+h+strings.Repeat(" ", rightPad)) + "│"
+		} else {
+			headerRow += strings.Repeat(" ", leftPad) + h + strings.Repeat(" ", rightPad) + "│"
+		}
+	}
+	lines = append(lines, headerRow)
+
+	// Build separator
+	sep := "├"
+	for i, w := range widths {
+		if i > 0 {
+			sep += "┼"
+		}
+		sep += strings.Repeat("─", w)
+	}
+	sep += "┤"
+	if ShouldRenderColor() {
+		lines = append(lines, MutedStyle.Render(sep))
+	} else {
+		lines = append(lines, sep)
+	}
+
+	// Build data rows with optional zebra striping
+	for rowIdx, row := range rows {
+		rowStr := "│"
+		for i, cell := range row {
+			if i >= len(widths) {
+				continue
+			}
+			padding := widths[i] - len(cell) - 1 // -1 for left padding
+			content := " " + cell + strings.Repeat(" ", padding)
+
+			if ShouldRenderColor() && rowIdx%2 == 1 {
+				// Zebra striping - every other row gets slightly different background
+				rowStr += lipgloss.Style{}.Foreground(valueColor).Render(content) + "│"
+			} else {
+				rowStr += content + "│"
+			}
+		}
+		lines = append(lines, rowStr)
+	}
+
+	// Build bottom border
+	bottomBorder := "└"
+	for i, w := range widths {
+		if i > 0 {
+			bottomBorder += "┴"
+		}
+		bottomBorder += strings.Repeat("─", w)
+	}
+	bottomBorder += "┘"
+	if ShouldRenderColor() {
+		lines = append(lines, MutedStyle.Render(bottomBorder))
+	} else {
+		lines = append(lines, bottomBorder)
+	}
+
+	return strings.Join(lines, "\n")
 }

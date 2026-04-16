@@ -3,49 +3,54 @@ Output docs/demo.gif
 Set Shell "zsh"
 Set FontSize 22
 Set Width 1400
-Set Height 760
-Set Padding 18
+Set Height 800
+Set Padding 20
 Set BorderRadius 8
 Set WindowBar Colorful
 Set Theme "Builtin Dark"
-Set TypingSpeed 40ms
+Set TypingSpeed 50ms
 Set Framerate 30
 
 Hide
-Type "cd /tmp/oc-demo-recording/work"
+Type "cd /Users/sven1103/git/opencode-config-cli/.worktrees/feature/improved-lipgloss-styling"
 Enter
 Sleep 500ms
+Type "clear"
+Enter
 Show
 
-Type "mkdir -p demo-project"
-Enter
-Sleep 700ms
-
-Type "oc --version"
+Type "./occo --version"
 Enter
 Sleep 1s
 
-Type "oc source add qbicsoftware/opencode-config-bundle --name qbic"
+Type "./occo --help"
 Enter
-Sleep 1.2s
+Sleep 2s
 
-Type "oc bundle install --project-root demo-project"
+Type "./occo source list"
 Enter
-Sleep 1200ms
-Type "1"
-Enter
-Sleep 2600ms
-Type "1"
-Enter
-Sleep 2600ms
-Type "1"
-Enter
-Sleep 1.5s
+Sleep 2s
 
-Type "oc bundle status --project-root demo-project"
+Type "./occo bundle install test-add --preset default --dry-run"
 Enter
-Sleep 1.2s
+Sleep 2s
 
-Type "tree -a demo-project"
+Type "./occo bundle install --help"
 Enter
-Sleep 5s
+Sleep 3s
+
+Type "./occo source list --with-presets 2>&1 | head -12"
+Enter
+Sleep 3s
+
+Type "clear"
+Enter
+Sleep 500ms
+
+Type "./occo bundle install test-add --preset default --project-root /tmp/demo-test 2>&1"
+Enter
+Sleep 2s
+
+Type "./occo bundle status --project-root /tmp/demo-test"
+Enter
+Sleep 3s

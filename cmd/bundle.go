@@ -57,10 +57,10 @@ var bundleCmd = &cobra.Command{
 Install, track, and update configuration bundles from registered sources.
 
 Examples:
-	  oc bundle install qbic --preset default
-	  oc bundle install qbic
-	  oc bundle status
-	  oc bundle update abc12345`,
+	  occo bundle install qbic --preset default
+	  occo bundle install qbic
+	  occo bundle status
+	  occo bundle update abc12345`,
 }
 
 // bundleInstallCmd installs a preset from a registered config bundle
@@ -73,12 +73,12 @@ The source-ref may be either a registered source ID or a unique source name.
 When omitted in interactive mode, the command prompts for source and preset selection.
 
 Examples:
-	  oc bundle install qbic --preset default
-	  oc bundle install qbic
-	  oc bundle install abc12345 --version v1.2.3 --preset default
-	  oc bundle install qbic --preset minimal --project-root ./myproject
-	  oc bundle install qbic --auto --preset default --force
-	  oc bundle install (interactive mode)`,
+	  occo bundle install qbic --preset default
+	  occo bundle install qbic
+	  occo bundle install abc12345 --version v1.2.3 --preset default
+	  occo bundle install qbic --preset minimal --project-root ./myproject
+	  occo bundle install qbic --auto --preset default --force
+	  occo bundle install (interactive mode)`,
 	Args: cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) > 0 {
@@ -106,8 +106,8 @@ var bundleStatusCmd = &cobra.Command{
 Displays the source, version, and preset that was applied to the project.
 
 Example:
-  oc bundle status
-  oc bundle status --project-root ./myproject`,
+  occo bundle status
+  occo bundle status --project-root ./myproject`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runBundleStatus()
 	},
@@ -122,8 +122,8 @@ var bundleUpdateCmd = &cobra.Command{
 Only sources marked as update-capable in their manifest support this command.
 
 Examples:
-  oc bundle update abc12345
-  oc bundle update abc12345 --yes`,
+  occo bundle update abc12345
+  occo bundle update abc12345 --yes`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runBundleUpdate(args[0])
@@ -142,10 +142,10 @@ Creates the following files in the output directory:
   - README.md: Bundle documentation
 
 Examples:
-  oc bundle init
-  oc bundle init --name mybundle
-  oc bundle init --name mybundle --version v1.0.0
-  oc bundle init --name mybundle --output ./my-bundle`,
+  occo bundle init
+  occo bundle init --name mybundle
+  occo bundle init --name mybundle --version v1.0.0
+  occo bundle init --name mybundle --output ./my-bundle`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runBundleInit()
 	},
@@ -262,8 +262,13 @@ func runBundleInstall(sourceRef string, interactivePreset bool) error {
 
 	// Dry run mode
 	if bundleDryRun {
-		fmt.Println(styles.DryRun(fmt.Sprintf("apply preset '%s' from bundle '%s'", selectedPreset, manifest.BundleName)))
-		fmt.Println(styles.DryRun(fmt.Sprintf("write config to %s", outputPath)))
+		fmt.Println()
+		fmt.Println(styles.SectionHeader("Dry Run"))
+		fmt.Println(styles.KeyValue("Preset", selectedPreset))
+		fmt.Println(styles.KeyValue("Bundle", manifest.BundleName))
+		fmt.Println(styles.KeyValue("Output", outputPath))
+		fmt.Println()
+		fmt.Println(styles.Done("dry-run complete"))
 		return nil
 	}
 
@@ -441,15 +446,20 @@ func promptForPresetSelection(manifest *bundle.Manifest) (string, error) {
 
 	reader := bufio.NewReader(bundlePromptIn)
 	for {
-		fmt.Fprintf(bundlePromptOut, "Available presets for %s:\n", manifest.BundleName)
+		fmt.Fprintln(bundlePromptOut)
+		fmt.Fprint(bundlePromptOut, styles.SectionHeader("Select Preset for "+manifest.BundleName))
 		for i, preset := range manifest.Presets {
 			if preset.Description != "" {
-				fmt.Fprintf(bundlePromptOut, "  %d) %s - %s\n", i+1, preset.Name, preset.Description)
+				fmt.Fprintf(bundlePromptOut, "  %d) %s  %s\n",
+					i+1,
+					preset.Name,
+					styles.Muted("- "+preset.Description))
 				continue
 			}
 			fmt.Fprintf(bundlePromptOut, "  %d) %s\n", i+1, preset.Name)
 		}
-		fmt.Fprint(bundlePromptOut, styles.Prompt("Select a preset: "))
+		fmt.Fprintln(bundlePromptOut)
+		fmt.Fprint(bundlePromptOut, styles.Prompt("Enter selection: "))
 
 		selection, err := reader.ReadString('\n')
 		if err != nil {
@@ -483,16 +493,22 @@ func promptForSourceSelection() (string, error) {
 	}
 
 	if len(sources) == 0 {
-		return "", fmt.Errorf("no sources registered (run 'oc bundle source add <location>' to register a source)")
+		return "", fmt.Errorf("no sources registered (run 'occo source add <location>' to register a source)")
 	}
 
 	reader := bufio.NewReader(bundlePromptIn)
 	for {
-		fmt.Fprintln(bundlePromptOut, "Available sources:")
+		fmt.Fprintln(bundlePromptOut)
+		fmt.Fprintln(bundlePromptOut, styles.SectionHeader("Select Source"))
 		for i, src := range sources {
-			fmt.Fprintf(bundlePromptOut, "  %d) %s (%s) - %s\n", i+1, src.ID, src.Type, src.Name)
+			fmt.Fprintf(bundlePromptOut, "  %d) %s  %s  %s\n",
+				i+1,
+				src.ID,
+				styles.Muted("("+string(src.Type)+")"),
+				src.Name)
 		}
-		fmt.Fprint(bundlePromptOut, styles.Prompt("Select a source: "))
+		fmt.Fprintln(bundlePromptOut)
+		fmt.Fprint(bundlePromptOut, styles.Prompt("Enter selection: "))
 
 		selection, err := reader.ReadString('\n')
 		if err != nil {
@@ -675,13 +691,14 @@ func runBundleStatus() error {
 	}
 
 	// Display provenance
-	fmt.Println("Bundle Provenance:")
-	fmt.Printf("  source_id:      %s\n", prov.SourceID)
-	fmt.Printf("  source_name:    %s\n", prov.SourceName)
-	fmt.Printf("  source_type:    %s\n", prov.SourceType)
-	fmt.Printf("  bundle_version: %s\n", prov.BundleVersion)
-	fmt.Printf("  preset_name:    %s\n", prov.PresetName)
-	fmt.Printf("  applied_at:     %s\n", prov.AppliedAt)
+	fmt.Println()
+	fmt.Println(styles.SectionHeader("Bundle Provenance"))
+	fmt.Println(styles.KeyValue("Source ID", prov.SourceID))
+	fmt.Println(styles.KeyValue("Source Name", prov.SourceName))
+	fmt.Println(styles.KeyValue("Source Type", string(prov.SourceType)))
+	fmt.Println(styles.KeyValue("Bundle Version", prov.BundleVersion))
+	fmt.Println(styles.KeyValue("Preset", prov.PresetName))
+	fmt.Println(styles.KeyValueMuted("Applied At", prov.AppliedAt))
 
 	return nil
 }
@@ -829,7 +846,7 @@ func runBundleInit() error {
 		"Default preset with basic configuration.\n\n" +
 		"## Usage\n\n" +
 		"```bash\n" +
-		"oc bundle apply <source-ref> --preset default\n" +
+		"occo bundle install <source-ref> --preset default\n" +
 		"```\n\n" +
 		"## Structure\n\n" +
 		"- `opencode-bundle.manifest.json` - Bundle manifest\n" +

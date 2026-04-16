@@ -345,7 +345,7 @@ func ValidateSource(location string, sourceType SourceType) error {
 		// Check for manifest file
 		manifestPath := filepath.Join(location, "opencode-bundle.manifest.json")
 		if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
-			return fmt.Errorf("bundle manifest not found: %s (run 'oc bundle init' to create one)", manifestPath)
+			return fmt.Errorf("bundle manifest not found: %s (run 'occo bundle init' to create one)", manifestPath)
 		}
 	case SourceTypeLocalArchive:
 		info, err := os.Stat(location)
