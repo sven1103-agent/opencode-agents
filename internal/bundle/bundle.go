@@ -66,6 +66,146 @@ type Preset struct {
 	Description string   `json:"description,omitempty"`
 }
 
+// ValidationError represents an error found during bundle validation.
+type ValidationError struct {
+	Category string // "manifest", "schema", "entrypoint", "prompt_files", "preset"
+	Message  string
+	File     string // path to file with error
+}
+
+// ValidationResult represents the result of bundle validation.
+type ValidationResult struct {
+	Valid    bool
+	Errors   []ValidationError
+	Warnings []string
+}
+
+// ValidateBundle validates a bundle at the given root directory.
+// Returns a ValidationResult with all errors collected (not fail-fast).
+// System errors (IO, permissions) return a non-nil error.
+// Validation errors return nil error with ValidationResult.Valid=false.
+func ValidateBundle(bundleRoot string) (*ValidationResult, error) {
+	result := &ValidationResult{
+		Valid:    true,
+		Errors:   []ValidationError{},
+		Warnings: []string{},
+	}
+
+	// 1. Check manifest exists
+	manifestPath := filepath.Join(bundleRoot, "opencode-bundle.manifest.json")
+	manifestData, err := os.ReadFile(manifestPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			result.Valid = false
+			result.Errors = append(result.Errors, ValidationError{
+				Category: "manifest",
+				Message:  "manifest file not found",
+				File:     manifestPath,
+			})
+			return result, nil
+		}
+		return nil, fmt.Errorf("failed to read manifest: %w", err)
+	}
+
+	// 2. Parse JSON and validate against schema
+	var rawManifest interface{}
+	if err := json.Unmarshal(manifestData, &rawManifest); err != nil {
+		result.Valid = false
+		result.Errors = append(result.Errors, ValidationError{
+			Category: "manifest",
+			Message:  fmt.Sprintf("invalid JSON: %v", err),
+			File:     manifestPath,
+		})
+		return result, nil
+	}
+
+	// Validate against embedded schema
+	schema, err := schemaCompiler.Compile("1.0.0.schema.json")
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile schema: %w", err)
+	}
+
+	if err := schema.Validate(rawManifest); err != nil {
+		result.Valid = false
+		result.Errors = append(result.Errors, ValidationError{
+			Category: "schema",
+			Message:  fmt.Sprintf("schema validation failed: %v", err),
+			File:     manifestPath,
+		})
+		return result, nil
+	}
+
+	// 3. Load manifest for version validation
+	manifest, err := LoadManifest(manifestPath)
+	if err != nil {
+		result.Valid = false
+		result.Errors = append(result.Errors, ValidationError{
+			Category: "manifest",
+			Message:  err.Error(),
+			File:     manifestPath,
+		})
+		return result, nil
+	}
+
+	// 4. Validate each preset
+	for _, preset := range manifest.Presets {
+		// Check entrypoint exists
+		entrypointPath := filepath.Join(bundleRoot, preset.Entrypoint)
+		entrypointData, err := os.ReadFile(entrypointPath)
+		if err != nil {
+			result.Valid = false
+			if os.IsNotExist(err) {
+				result.Errors = append(result.Errors, ValidationError{
+					Category: "entrypoint",
+					Message:  "entrypoint file not found",
+					File:     entrypointPath,
+				})
+			} else {
+				result.Errors = append(result.Errors, ValidationError{
+					Category: "entrypoint",
+					Message:  fmt.Sprintf("failed to read entrypoint: %v", err),
+					File:     entrypointPath,
+				})
+			}
+			continue
+		}
+
+		// Check entrypoint is valid JSON
+		var presetData interface{}
+		if err := json.Unmarshal(entrypointData, &presetData); err != nil {
+			result.Valid = false
+			result.Errors = append(result.Errors, ValidationError{
+				Category: "preset",
+				Message:  fmt.Sprintf("invalid JSON in preset: %v", err),
+				File:     entrypointPath,
+			})
+		}
+
+		// Check prompt_files exist
+		for _, promptFile := range preset.PromptFiles {
+			promptPath := filepath.Join(bundleRoot, promptFile)
+			if _, err := os.Stat(promptPath); err != nil {
+				result.Valid = false
+				if os.IsNotExist(err) {
+					result.Errors = append(result.Errors, ValidationError{
+						Category: "prompt_files",
+						Message:  "prompt file not found",
+						File:     promptPath,
+					})
+				} else {
+					result.Errors = append(result.Errors, ValidationError{
+						Category: "prompt_files",
+						Message:  fmt.Sprintf("failed to read prompt file: %v", err),
+						File:     promptPath,
+					})
+				}
+			}
+		}
+	}
+
+	return result, nil
+}
+
 // InstalledAsset represents a file installed from a bundle to the project.
 type InstalledAsset struct {
 	Source      string `json:"source"`      // Path in bundle (relative to bundle root)

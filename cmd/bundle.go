@@ -34,6 +34,9 @@ var (
 	bundlePromptOut          io.Writer = os.Stdout
 	bundleInputIsTTY                   = isInteractiveTTY
 
+	// bundle validate flags
+	bundleValidateVerbose bool
+
 	// bundle init flags
 	bundleInitName    string
 	bundleInitVersion string
@@ -151,6 +154,32 @@ Examples:
 	},
 }
 
+// bundleValidateCmd validates a bundle directory or archive
+var bundleValidateCmd = &cobra.Command{
+	Use:   "validate [PATH]",
+	Short: "Validate bundle structure and manifest",
+	Long: `Validates a bundle directory or archive against the opencode-bundle manifest schema.
+
+Examples:
+  occo bundle validate
+  occo bundle validate ./my-bundle
+  occo bundle validate ./bundle.tar.gz`,
+	Args: cobra.RangeArgs(0, 1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		err := runBundleValidate(cmd, args)
+		if err != nil {
+			// Check if it's a system error (exit code 2)
+			if vErr, ok := err.(*validationError); ok && vErr.IsSystemError {
+				fmt.Fprintln(os.Stderr, styles.Error("Error:")+" "+vErr.Message)
+				os.Exit(2)
+			}
+			// Return error for default exit code 1
+			return err
+		}
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(bundleCmd)
 
@@ -159,6 +188,7 @@ func init() {
 	bundleCmd.AddCommand(bundleStatusCmd)
 	bundleCmd.AddCommand(bundleUpdateCmd)
 	bundleCmd.AddCommand(bundleInitCmd)
+	bundleCmd.AddCommand(bundleValidateCmd)
 
 	// Flags for bundle apply
 	bundleInstallCmd.Flags().StringVar(&bundlePreset, "preset", "", "Preset name to apply")
@@ -184,6 +214,10 @@ func init() {
 	bundleInitCmd.Flags().StringVar(&bundleInitVersion, "version", "", "Bundle version (defaults to 0.0.1)")
 	bundleInitCmd.Flags().StringVar(&bundleInitOutput, "output", ".", "Output directory for the bundle")
 	bundleInitCmd.Flags().BoolVar(&bundleInitForce, "force", false, "Overwrite existing directory contents")
+
+	// Flags for bundle validate
+	bundleValidateCmd.Flags().StringVar(&bundleProjectRoot, "project-root", ".", "Project root directory (for default path)")
+	bundleValidateCmd.Flags().BoolVar(&bundleValidateVerbose, "verbose", false, "Show detailed validation progress")
 }
 
 func runBundleInstall(sourceRef string, interactivePreset bool) error {
@@ -1075,4 +1109,95 @@ func validateBundleName(name string) error {
 		return fmt.Errorf("bundle name must contain only alphanumeric characters, hyphens, and underscores")
 	}
 	return nil
+}
+
+// ValidationError is a custom error type for validation results
+type validationError struct {
+	IsSystemError bool
+	Message       string
+}
+
+func (e *validationError) Error() string {
+	return e.Message
+}
+
+// runBundleValidate validates a bundle at the given path
+// Exit codes: 0 = valid, 1 = validation errors, 2 = system/IO errors
+func runBundleValidate(cmd *cobra.Command, args []string) error {
+	// Determine path (default: current directory)
+	targetPath := bundleProjectRoot
+	if targetPath == "." {
+		// No explicit project root set - use the argument or current directory
+		if len(args) > 0 {
+			targetPath = args[0]
+		}
+	} else if len(args) > 0 {
+		// Both project-root flag and argument provided - prefer argument
+		targetPath = args[0]
+	}
+
+	if bundleValidateVerbose {
+		fmt.Println(styles.Muted("→ Checking path:"), targetPath)
+	}
+
+	// Check if path exists first (for better error handling)
+	if _, err := os.Stat(targetPath); err != nil {
+		if os.IsNotExist(err) {
+			// System error - path doesn't exist (exit code 2)
+			return &validationError{IsSystemError: true, Message: fmt.Sprintf("path does not exist: %s", targetPath)}
+		}
+		// Other system error (exit code 2)
+		return &validationError{IsSystemError: true, Message: fmt.Sprintf("failed to access path: %v", err)}
+	}
+
+	// Resolve to local path (handles both directories and .tar.gz archives)
+	bundleRoot, cleanup, err := bundle.ResolveToLocal("local-directory", targetPath, "")
+	if err != nil {
+		// If direct directory doesn't work, try as archive
+		bundleRoot, cleanup, err = bundle.ResolveToLocal("local-archive", targetPath, "")
+		if err != nil {
+			// Path doesn't exist or is invalid (exit code 2)
+			return &validationError{IsSystemError: true, Message: fmt.Sprintf("failed to resolve path: %v", err)}
+		}
+	}
+	defer cleanup()
+
+	if bundleValidateVerbose {
+		fmt.Println(styles.Muted("→ Resolved bundle root:"), bundleRoot)
+	}
+
+	// Validate the bundle
+	result, err := bundle.ValidateBundle(bundleRoot)
+	if err != nil {
+		// System error (IO, permissions, etc.) - exit code 2
+		return &validationError{IsSystemError: true, Message: fmt.Sprintf("validation failed: %v", err)}
+	}
+
+	if bundleValidateVerbose {
+		fmt.Println(styles.Muted("→ Validation complete:"), len(result.Errors), "errors")
+	}
+
+	// Print results
+	if result.Valid {
+		fmt.Println(styles.Success("✓ Bundle is valid"))
+		return nil
+	}
+
+	// Print errors (validation failed - exit code 1)
+	fmt.Println(styles.Error("✗ Bundle validation failed"))
+	for _, e := range result.Errors {
+		fmt.Printf("  %s %s\n", styles.Error("✗"), e.Message)
+	}
+
+	// Print warnings if any
+	if len(result.Warnings) > 0 {
+		fmt.Println()
+		fmt.Println(styles.Warning("Warnings:"))
+		for _, w := range result.Warnings {
+			fmt.Printf("  %s %s\n", styles.Warning("⚠"), w)
+		}
+	}
+
+	// Return error for validation failures (exit code 1)
+	return fmt.Errorf("validation failed")
 }

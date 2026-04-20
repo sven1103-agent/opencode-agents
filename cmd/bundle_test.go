@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -1369,5 +1371,251 @@ func TestBundleInitPresetFilePathMatchesEntrypoint(t *testing.T) {
 	// Verify the preset file exists at the entrypoint path
 	if _, err := os.Stat(expectedPresetPath); err != nil {
 		t.Fatalf("preset file does not exist at entrypoint path %s: %v", expectedPresetPath, err)
+	}
+}
+
+// ============================================================================
+// Bundle Validate Tests
+// ============================================================================
+
+func TestBundleValidateCommand_ValidBundle(t *testing.T) {
+	// Create a temp valid bundle
+	bundleDir := t.TempDir()
+	manifest := `{"manifest_version":"1.0.0","bundle_name":"test","bundle_version":"v1.0.0","presets":[{"name":"default","entrypoint":"default.json","description":"Default preset"}]}`
+	if err := os.WriteFile(filepath.Join(bundleDir, "opencode-bundle.manifest.json"), []byte(manifest), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(bundleDir, "default.json"), []byte(`{"agents":[]}`), 0644); err != nil {
+		t.Fatalf("failed to write preset: %v", err)
+	}
+
+	// Test validation by calling runBundleValidate directly
+	err := runBundleValidate(bundleCmd, []string{bundleDir})
+	if err != nil {
+		t.Fatalf("runBundleValidate() error = %v", err)
+	}
+}
+
+func TestBundleValidateCommand_InvalidBundle(t *testing.T) {
+	// Create temp invalid bundle (missing manifest)
+	bundleDir := t.TempDir()
+	// Don't write manifest - this should fail validation
+	if err := os.WriteFile(filepath.Join(bundleDir, "some-other-file.txt"), []byte("content"), 0644); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+
+	// Test validation - should return error for invalid bundle
+	err := runBundleValidate(bundleCmd, []string{bundleDir})
+	if err == nil {
+		t.Fatal("runBundleValidate() expected error for invalid bundle")
+	}
+}
+
+func TestBundleValidateCommand_NonExistentPath(t *testing.T) {
+	nonExistentPath := "/path/that/does/not/exist/12345"
+
+	// Test with non-existent path - should return error
+	err := runBundleValidate(bundleCmd, []string{nonExistentPath})
+	if err == nil {
+		t.Fatal("runBundleValidate() expected error for non-existent path")
+	}
+}
+
+func TestBundleValidateCommand_ArchivePath(t *testing.T) {
+	// Create a temp valid bundle directory
+	bundleDir := t.TempDir()
+	manifest := `{"manifest_version":"1.0.0","bundle_name":"test-archive","bundle_version":"v1.0.0","presets":[{"name":"default","entrypoint":"default.json","description":"Default preset"}]}`
+	if err := os.WriteFile(filepath.Join(bundleDir, "opencode-bundle.manifest.json"), []byte(manifest), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(bundleDir, "default.json"), []byte(`{"agents":[]}`), 0644); err != nil {
+		t.Fatalf("failed to write preset: %v", err)
+	}
+
+	// Create archive using tar command
+	archiveDir := t.TempDir()
+	archivePath := filepath.Join(archiveDir, "test-bundle.tar.gz")
+
+	// Use exec.Command to create tarball
+	tarCmd := exec.Command("tar", "-czf", archivePath, "-C", bundleDir, ".")
+	if err := tarCmd.Run(); err != nil {
+		t.Fatalf("failed to create archive: %v", err)
+	}
+
+	// Test validation on archive - directly call ValidateBundle on extracted root
+	bundleRoot, cleanup, err := bundle.ResolveToLocal("local-archive", archivePath, "")
+	if err != nil {
+		t.Fatalf("failed to resolve archive: %v", err)
+	}
+	defer cleanup()
+
+	result, err := bundle.ValidateBundle(bundleRoot)
+	if err != nil {
+		t.Fatalf("ValidateBundle() error = %v", err)
+	}
+	if !result.Valid {
+		t.Fatalf("ValidateBundle() expected valid, got errors: %v", result.Errors)
+	}
+}
+
+func TestBundleValidateCommand_InvalidManifestJSON(t *testing.T) {
+	// Create temp bundle with invalid JSON manifest
+	bundleDir := t.TempDir()
+	// Write invalid JSON
+	if err := os.WriteFile(filepath.Join(bundleDir, "opencode-bundle.manifest.json"), []byte(`{invalid json}`), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+
+	// Test validation - should return error for invalid JSON
+	err := runBundleValidate(bundleCmd, []string{bundleDir})
+	if err == nil {
+		t.Fatal("runBundleValidate() expected error for invalid JSON manifest")
+	}
+}
+
+func TestBundleValidateCommand_MissingEntrypoint(t *testing.T) {
+	// Create temp bundle with preset referencing non-existent entrypoint
+	bundleDir := t.TempDir()
+	manifest := `{"manifest_version":"1.0.0","bundle_name":"test","bundle_version":"v1.0.0","presets":[{"name":"default","entrypoint":"nonexistent.json","description":"Default preset"}]}`
+	if err := os.WriteFile(filepath.Join(bundleDir, "opencode-bundle.manifest.json"), []byte(manifest), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+	// Don't write the preset file - this should cause validation failure
+
+	// Test validation - should return error for missing entrypoint
+	err := runBundleValidate(bundleCmd, []string{bundleDir})
+	if err == nil {
+		t.Fatal("runBundleValidate() expected error for missing entrypoint")
+	}
+}
+
+func TestBundleValidateFlags(t *testing.T) {
+	if bundleValidateCmd.Flags().Lookup("project-root") == nil {
+		t.Error("project-root flag should exist on bundle validate command")
+	}
+}
+
+// TestBundleValidateCommand_MalformedArchive tests handling of corrupted tar.gz files
+func TestBundleValidateCommand_MalformedArchive(t *testing.T) {
+	// Create a temp file that looks like a .tar.gz but isn't
+	tmpDir := t.TempDir()
+	badArchivePath := filepath.Join(tmpDir, "corrupted.tar.gz")
+
+	// Write invalid tar.gz content (just random bytes)
+	if err := os.WriteFile(badArchivePath, []byte("not a valid gzip archive content here"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Test validation - should return system error (exit code 2)
+	err := runBundleValidate(bundleCmd, []string{badArchivePath})
+	if err == nil {
+		t.Fatal("runBundleValidate() expected error for malformed archive")
+	}
+
+	// Should be a validationError with IsSystemError = true
+	if vErr, ok := err.(*validationError); !ok {
+		t.Fatalf("expected validationError type, got %T", err)
+	} else if !vErr.IsSystemError {
+		t.Error("expected IsSystemError=true for malformed archive")
+	}
+}
+
+// TestBundleValidateCommand_PermissionDenied tests handling of permission errors
+func TestBundleValidateCommand_PermissionDenied(t *testing.T) {
+	// Skip on Windows - permission handling differs
+	if runtime.GOOS == "windows" {
+		t.Skip("permission tests not supported on Windows")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Create a valid bundle first
+	manifest := `{"manifest_version":"1.0.0","bundle_name":"test","bundle_version":"v1.0.0","presets":[{"name":"default","entrypoint":"default.json","description":"Default preset"}]}`
+	if err := os.WriteFile(filepath.Join(tmpDir, "opencode-bundle.manifest.json"), []byte(manifest), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "default.json"), []byte(`{"agents":[]}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Remove read permission on the directory
+	if err := os.Chmod(tmpDir, 0000); err != nil {
+		t.Skipf("cannot change permissions: %v", err)
+	}
+	defer func() { _ = os.Chmod(tmpDir, 0755) }() // Restore for cleanup
+
+	// Test validation - should return permission error (exit code 2)
+	err := runBundleValidate(bundleCmd, []string{tmpDir})
+	if err == nil {
+		t.Fatal("runBundleValidate() expected error for permission denied")
+	}
+
+	// Should be a validationError with IsSystemError = true
+	if vErr, ok := err.(*validationError); !ok {
+		t.Fatalf("expected validationError type, got %T", err)
+	} else if !vErr.IsSystemError {
+		t.Error("expected IsSystemError=true for permission denied")
+	}
+}
+
+// TestBundleValidateCommand_MultipleValidationErrors tests that all errors are displayed
+func TestBundleValidateCommand_MultipleValidationErrors(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a bundle with multiple validation errors
+	// - Missing entrypoint (preset1)
+	// - Missing prompt file (preset2)
+	// - Invalid JSON in entrypoint (preset3)
+	manifest := `{
+		"manifest_version": "1.0.0",
+		"bundle_name": "multi-error",
+		"bundle_version": "v1.0.0",
+		"presets": [
+			{"name": "preset1", "description": "Missing entrypoint", "entrypoint": "missing1.json"},
+			{"name": "preset2", "description": "Missing prompt", "entrypoint": "valid2.json", "prompt_files": ["missing.txt"]},
+			{"name": "preset3", "description": "Invalid JSON", "entrypoint": "invalid.json"}
+		]
+	}`
+	if err := os.WriteFile(filepath.Join(tmpDir, "opencode-bundle.manifest.json"), []byte(manifest), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create valid entrypoint for preset2
+	if err := os.WriteFile(filepath.Join(tmpDir, "valid2.json"), []byte("{}"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create invalid JSON for preset3
+	if err := os.WriteFile(filepath.Join(tmpDir, "invalid.json"), []byte("not json"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := runBundleValidate(bundleCmd, []string{tmpDir})
+
+	// Should return error (validation failed)
+	if err == nil {
+		t.Fatal("runBundleValidate() expected error for multiple validation errors")
+	}
+
+	// Should NOT be a system error - it's validation error (exit code 1)
+	if vErr, ok := err.(*validationError); ok && vErr.IsSystemError {
+		t.Error("expected validation error (not system error) for multiple validation errors")
+	}
+}
+
+// TestBundleValidateCommand_FixtureBundleIntegration tests validation of the fixture-bundle
+func TestBundleValidateCommand_FixtureBundleIntegration(t *testing.T) {
+	// Use the existing fixture-bundle from e2e/testdata
+	fixturePath := filepath.Join("..", "e2e", "testdata", "fixture-bundle")
+
+	// Verify fixture exists
+	if _, err := os.Stat(fixturePath); os.IsNotExist(err) {
+		t.Skipf("fixture-bundle not found at %s", fixturePath)
+	}
+
+	// Test validation - should succeed (fixture is valid)
+	err := runBundleValidate(bundleCmd, []string{fixturePath})
+	if err != nil {
+		t.Fatalf("runBundleValidate() error = %v for fixture-bundle (should be valid)", err)
 	}
 }
